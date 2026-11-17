@@ -3,3 +3,6 @@ desktop.ini
 
 .vscode/
 .idea/
+
+# Secrete locale
+.env
