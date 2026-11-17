@@ -1,0 +1,309 @@
+# Catalogul pentru Calculatoare (romana), anul universitar 2026-2027.
+# Sursa: planul de invatamant listat la 12.06.2026 + fisele disciplinelor (vezi folderul sources/).
+#
+# Valori implicite (pot lipsi): grading_type: NUMERIC, regime: DOB, rules_status: NONE.
+# plan_code se scrie intre ghilimele ("4.00"), ca sa fie clar ca e text, nu numar.
+#
+# rules_status:
+#   CLEAR     - regulile din fisa sunt clare; aplicatia ofera simulatorul pe componente
+#   AMBIGUOUS - fisa e neclara / nu se aplica strict; afisam textul, studentul introduce nota finala
+#   NONE      - nu avem regulile; doar nota finala
+
+program:
+  code: CALC-RO
+  name: Calculatoare
+  language: ro
+
+curriculum:
+  academic_year: "2026-2027"
+
+courses:
+  # ───────────── Anul I, semestrul 1 ─────────────
+
+  - plan_code: "1.00"
+    name: Analiză matematică I (Calcul diferențial)
+    year_of_study: 1
+    semester: 1
+    credits: 4
+    evaluation_form: E
+    category: DF
+    rules_status: CLEAR
+    syllabus: { academic_year: "2026-2027", completed_on: 2026-04-27 }
+    components:
+      - code: theory
+        kind: EXAM
+        label: Examen scris – curs
+        weight: 40
+        source_text: "Curs | Abilităţi de rezolvare a problemelor. Prezenţă. | Examen scris | 40%"
+      - code: problems
+        kind: EXAM
+        label: Examen scris – seminar
+        weight: 60
+        source_text: "Seminar | Abilităţi de rezolvare a problemelor. Prezenţă, activitate. | Examen scris | 60%"
+
+  - plan_code: "2.00"
+    name: Algebră liniară și geometrie analitică
+    year_of_study: 1
+    semester: 1
+    credits: 4
+    evaluation_form: E
+    category: DF
+    rules_status: AMBIGUOUS
+    syllabus: { academic_year: "2026-2027", completed_on: 2026-04-28 }
+    components:
+      - code: theory
+        kind: EXAM
+        label: Examen scris/oral – curs
+        weight: 20
+        source_text: "Curs | Cunoasterea principiilor si rezultatelor teoretice. | Examen scris / oral | 20%"
+      - code: problems
+        kind: EXAM
+        label: Examen scris – seminar
+        weight: 80
+        source_text: "Seminar | Abilităţi de rezolvare a problemelor. Prezenta. Activitate | Examen scris | 80%"
+    extra_requirements:
+      - "Standard minim de performanţă: nota 5 la examen."
+      - "În practică, o parte a notei a funcționat ca bonus care ajustează nota finală, nu ca o componentă de sine stătătoare."
+
+  - plan_code: "3.00"
+    name: Matematici speciale
+    year_of_study: 1
+    semester: 1
+    credits: 5
+    evaluation_form: E
+    category: DF
+    rules_status: AMBIGUOUS
+    syllabus: { academic_year: "2026-2027", completed_on: 2026-04-24 }
+    components:
+      - code: theory
+        kind: EXAM
+        label: Examen scris – curs
+        weight: 40
+        source_text: "Curs | ... | Examen scris | 40%"
+      - code: problems
+        kind: CONTINUOUS
+        label: Examen scris și evaluare continuă – seminar
+        weight: 60
+        source_text: "Seminar | ... | Examen scris și evaluarea continuă pe parcursul semestrului | 60%"
+    extra_requirements:
+      - "Condiții de participare la examenul final: maxim 4 absențe la seminar."
+      - "Condiții de promovare: examen scris >= 5 (fișa nu precizează la care dintre componente se referă)."
+
+  - plan_code: "4.00"
+    name: Proiectare logică
+    year_of_study: 1
+    semester: 1
+    credits: 5
+    evaluation_form: E
+    category: DF
+    rules_status: CLEAR
+    syllabus: { academic_year: "2026-2027", completed_on: 2026-06-12 }
+    components:
+      - code: exam
+        kind: EXAM
+        label: Examen final
+        weight: 70
+        source_text: "Calcul notă disciplină: 30% laborator + 70% examen final"
+      - code: lab
+        kind: LAB
+        label: Laborator
+        weight: 30
+        source_text: "Calcul notă disciplină: 30% laborator + 70% examen final"
+    conditions:
+      - type: ADMISSION
+        component: lab
+        min_grade: 5
+        source_text: "Condiții de participare la examenul final: Laborator ≥ 5"
+      - type: PROMOTION
+        component: exam
+        min_grade: 5
+        source_text: "Condiții de promovare: Examen final ≥ 5"
+    extra_requirements:
+      - "Absențele la laborator implică neadmiterea la test."
+      - "Lipsa punctajului de promovare a testului implică neadmiterea la examen."
+
+  - plan_code: "5.00"
+    name: Programarea calculatoarelor
+    year_of_study: 1
+    semester: 1
+    credits: 6
+    evaluation_form: E
+    category: DF
+
+  - plan_code: "6.00"
+    name: Fizică
+    year_of_study: 1
+    semester: 1
+    credits: 4
+    evaluation_form: C
+    category: DF
+
+  # Pachet optional: se alege o singura limba straina (option_group comun)
+  - plan_code: "7.10"
+    name: Limba engleză I
+    year_of_study: 1
+    semester: 1
+    credits: 2
+    evaluation_form: C
+    category: DC
+    regime: DOP
+    option_group: "7"
+
+  - plan_code: "7.20"
+    name: Limba franceză I
+    year_of_study: 1
+    semester: 1
+    credits: 2
+    evaluation_form: C
+    category: DC
+    regime: DOP
+    option_group: "7"
+
+  - plan_code: "7.30"
+    name: Limba germană I
+    year_of_study: 1
+    semester: 1
+    credits: 2
+    evaluation_form: C
+    category: DC
+    regime: DOP
+    option_group: "7"
+
+  # ───────────── Anul I, semestrul 2 ─────────────
+
+  - plan_code: "8.00"
+    name: Analiză matematică II (Calcul integral și ecuații diferențiale)
+    year_of_study: 1
+    semester: 2
+    credits: 5
+    evaluation_form: E
+    category: DF
+
+  - plan_code: "9.00"
+    name: Programare în limbaj de asamblare
+    year_of_study: 1
+    semester: 2
+    credits: 4
+    evaluation_form: E
+    category: DS
+
+  - plan_code: "10.00"
+    name: Electrotehnică
+    year_of_study: 1
+    semester: 2
+    credits: 5
+    evaluation_form: E
+    category: DF
+
+  - plan_code: "11.00"
+    name: Proiectarea sistemelor numerice
+    year_of_study: 1
+    semester: 2
+    credits: 6
+    evaluation_form: E
+    category: DF
+
+  - plan_code: "12.00"
+    name: Structuri de date și algoritmi
+    year_of_study: 1
+    semester: 2
+    credits: 6
+    evaluation_form: E
+    category: DF
+
+  - plan_code: "13.10"
+    name: Limba engleză II
+    year_of_study: 1
+    semester: 2
+    credits: 2
+    evaluation_form: C
+    category: DC
+    regime: DOP
+    option_group: "13"
+
+  - plan_code: "13.20"
+    name: Limba franceză II
+    year_of_study: 1
+    semester: 2
+    credits: 2
+    evaluation_form: C
+    category: DC
+    regime: DOP
+    option_group: "13"
+
+  - plan_code: "13.30"
+    name: Limba germană II
+    year_of_study: 1
+    semester: 2
+    credits: 2
+    evaluation_form: C
+    category: DC
+    regime: DOP
+    option_group: "13"
+
+  - plan_code: "14.00"
+    name: Sport I
+    year_of_study: 1
+    semester: 2
+    credits: 2
+    evaluation_form: V
+    grading_type: PASS_FAIL   # admis = se considera 10 la medie
+    category: DC
+
+  # ───────────── Facultative (DFA): nu intra in medie si nici in cele 30 de credite ─────────────
+
+  - plan_code: "101.00"
+    name: Bazele circuitelor electronice
+    year_of_study: 1
+    semester: 1
+    credits: 5
+    evaluation_form: C
+    category: DF
+    regime: DFA
+
+  - plan_code: "200.00"
+    name: Psihologia educației
+    year_of_study: 1
+    semester: 1
+    credits: 5
+    evaluation_form: E
+    category: DC
+    regime: DFA
+
+  - plan_code: "301.00"
+    name: Voluntariat 1
+    year_of_study: 1
+    semester: 1
+    credits: 2
+    evaluation_form: V
+    grading_type: PASS_FAIL
+    category: DC
+    regime: DFA
+
+  - plan_code: "102.00"
+    name: Chimie
+    year_of_study: 1
+    semester: 2
+    credits: 4
+    evaluation_form: E
+    category: DF
+    regime: DFA
+
+  - plan_code: "201.00"
+    name: Pedagogie 1 (Fundamentele pedagogiei, Teoria și metodologia curriculum-ului)
+    year_of_study: 1
+    semester: 2
+    credits: 5
+    evaluation_form: E
+    category: DC
+    regime: DFA
+
+  - plan_code: "302.00"
+    name: Voluntariat 2
+    year_of_study: 1
+    semester: 2
+    credits: 2
+    evaluation_form: V
+    grading_type: PASS_FAIL
+    category: DC
+    regime: DFA
