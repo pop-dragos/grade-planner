@@ -5,12 +5,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.transaction.annotation.Transactional;
+
+import io.github.pop_dragos.backend.TestcontainersConfiguration;
 
 import jakarta.persistence.EntityManager;
 
 /** Importul fisierului YAML real, in baza de date. Catalogul e importat deja la pornirea aplicatiei. */
 @SpringBootTest
+@Import(TestcontainersConfiguration.class)
 @Transactional
 class CatalogImporterTest {
 

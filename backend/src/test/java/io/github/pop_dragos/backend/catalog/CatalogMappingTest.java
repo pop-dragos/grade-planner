@@ -7,7 +7,10 @@ import java.math.BigDecimal;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.transaction.annotation.Transactional;
+
+import io.github.pop_dragos.backend.TestcontainersConfiguration;
 
 import jakarta.persistence.EntityManager;
 
@@ -16,6 +19,7 @@ import jakarta.persistence.EntityManager;
  * @Transactional pe un test = la final se face ROLLBACK, deci baza de date ramane neschimbata.
  */
 @SpringBootTest
+@Import(TestcontainersConfiguration.class)
 @Transactional
 class CatalogMappingTest {
 
