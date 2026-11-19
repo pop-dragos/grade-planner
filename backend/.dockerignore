@@ -1,0 +1,7 @@
+# Ce NU se trimite la Docker cand construim imaginea ("build context").
+# Mai putine fisiere = build mai rapid si nimic nedorit ajuns in imagine.
+target/
+.idea/
+.vscode/
+*.iml
+HELP.md
