@@ -1,45 +1,99 @@
 import { useEffect, useState } from 'react'
-import { fetchCourses, type Course } from './api'
+import { fetchCourses, fetchPrograms, type Course, type Program } from './api'
+import { CatalogSelector, type Selection } from './components/CatalogSelector'
+import { SemesterView } from './components/SemesterView'
+import { useLocalStorage } from './useLocalStorage'
 
-// Pas temporar (3a): doar verificam ca frontend-ul primeste date de la backend.
-// Selectia de an/semestru si notele vin in pasul 3c.
+type Theme = 'light' | 'dark'
+
 export default function App() {
-  const [courses, setCourses] = useState<Course[]>([])
+  const [programs, setPrograms] = useState<Program[]>([])
+  const [savedSelection, setSelection] = useLocalStorage<Selection | null>('gp:selection', null)
+  const [theme, setTheme] = useLocalStorage<Theme>('gp:theme', 'light')
+  const [courses, setCourses] = useState<Course[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  // Tema se aplica pe <html data-theme="...">; CSS-ul are culorile pentru fiecare.
   useEffect(() => {
-    fetchCourses('CALC-RO', '2026-2027', 1, 1)
-      .then(setCourses)
+    document.documentElement.dataset.theme = theme
+  }, [theme])
+
+  useEffect(() => {
+    fetchPrograms()
+      .then(setPrograms)
       .catch((e: Error) => setError(e.message))
   }, [])
 
+  // Pana alege studentul ceva, pornim de la primul program, cel mai recent an universitar, anul 1 sem 1
+  const selection: Selection | null =
+    savedSelection ??
+    (programs.length > 0
+      ? { program: programs[0].code, academicYear: programs[0].academicYears[0], year: 1, semester: 1 }
+      : null)
+
+  const program = selection?.program
+  const academicYear = selection?.academicYear
+  const year = selection?.year
+  const semester = selection?.semester
+
+  useEffect(() => {
+    if (!program || !academicYear || !year || !semester) return
+    let cancelled = false // ignora raspunsul daca intre timp s-a schimbat selectia
+    fetchCourses(program, academicYear, year, semester)
+      .then((result) => {
+        if (!cancelled) setCourses(result)
+      })
+      .catch((e: Error) => setError(e.message))
+    return () => {
+      cancelled = true
+    }
+  }, [program, academicYear, year, semester])
+
   return (
-    <main>
-      <h1>Calculator medii CTI</h1>
-      <p>Calculatoare (RO) · 2026-2027 · Anul 1, semestrul 1</p>
+    <div className="page">
+      <header className="app-header">
+        <div>
+          <h1>Calculator medii CTI</h1>
+          <p className="subtitle">
+            Alege anul și semestrul, introdu notele și vezi media, creditele și ce îți mai trebuie la examene.
+          </p>
+        </div>
+        <button
+          type="button"
+          className="icon-button"
+          onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+          aria-label={theme === 'light' ? 'Temă întunecată' : 'Temă luminoasă'}
+          title={theme === 'light' ? 'Temă întunecată' : 'Temă luminoasă'}
+        >
+          {theme === 'light' ? '🌙' : '☀️'}
+        </button>
+      </header>
 
-      {error && <p role="alert">Nu am putut incarca materiile: {error}</p>}
+      {error && (
+        <p className="error" role="alert">
+          Nu am putut încărca datele: {error}
+        </p>
+      )}
 
-      <table>
-        <thead>
-          <tr>
-            <th>Cod</th>
-            <th>Materie</th>
-            <th>Credite</th>
-            <th>Reguli</th>
-          </tr>
-        </thead>
-        <tbody>
-          {courses.map((c) => (
-            <tr key={c.planCode}>
-              <td>{c.planCode}</td>
-              <td>{c.name}</td>
-              <td>{c.credits}</td>
-              <td>{c.rulesStatus}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </main>
+      {selection && programs.length > 0 && (
+        <CatalogSelector programs={programs} value={selection} onChange={setSelection} />
+      )}
+
+      {selection && courses && courses.length === 0 && (
+        <p className="empty">
+          Nu avem încă materiile pentru anul {selection.year}, semestrul {selection.semester}.
+        </p>
+      )}
+
+      {selection && courses && courses.length > 0 && (
+        <SemesterView
+          key={`${selection.program}:${selection.academicYear}`}
+          storageKey={`gp:grades:${selection.program}:${selection.academicYear}`}
+          courses={courses}
+        />
+      )}
+
+      <footer className="app-footer">Notele sunt salvate doar în acest browser.</footer>
+    </div>
   )
 }
