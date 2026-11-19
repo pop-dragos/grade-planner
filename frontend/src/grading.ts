@@ -1,0 +1,255 @@
+// Logica de calcul a notelor. Functii pure: primesc date, intorc rezultate, fara React si fara retea.
+// Totul ruleaza in browser: notele studentului nu ajung niciodata pe server.
+
+import type { Course, GradingCondition } from './api'
+
+// ─────────────── Ce introduce studentul pentru o materie ───────────────
+
+export type CourseEntry =
+  | { mode: 'final'; grade: number } // nota finala introdusa direct (1-10)
+  | { mode: 'components'; grades: Record<string, number | undefined> } // pe componente: cod -> nota
+  | { mode: 'passFail'; passed: boolean } // admis / respins
+
+export type CourseStatus = 'PASSED' | 'FAILED' | 'NOT_ADMITTED' | 'INCOMPLETE'
+
+export interface CourseResult {
+  status: CourseStatus
+  /** Media ponderata a componentelor, inainte de rotunjire (null daca nu se aplica). */
+  rawGrade: number | null
+  /** Nota obtinuta (rotunjita); pentru admis/respins: 10 / null. */
+  grade: number | null
+  /** Conditiile neindeplinite (pentru a explica de ce ai picat). */
+  failedConditions: GradingCondition[]
+}
+
+// ─────────────── Rotunjiri ───────────────
+
+// Toleranta pentru erorile de virgula mobila (ex. 4.5 calculat ca 4.4999999999).
+const EPSILON = 1e-9
+
+/** Rotunjire la intreg, de la ,50 in sus: 4.50 -> 5, 4.49 -> 4. */
+export function roundHalfUp(x: number): number {
+  return Math.floor(x + 0.5 + EPSILON)
+}
+
+/** Trunchiere la 2 zecimale: 8.679 -> 8.67. */
+export function truncate2(x: number): number {
+  return Math.floor(x * 100 + EPSILON) / 100
+}
+
+/** Rotunjire in sus la 2 zecimale (pentru „nota minima necesara”): 9.2857 -> 9.29. */
+function ceil2(x: number): number {
+  return Math.ceil(x * 100 - EPSILON) / 100
+}
+
+// ─────────────── Nota pe materie ───────────────
+
+const PASSING_GRADE = 5
+
+/** Calculeaza rezultatul unei materii din ce a introdus studentul. */
+export function courseResult(course: Course, entry: CourseEntry | undefined): CourseResult {
+  if (!entry) {
+    return { status: 'INCOMPLETE', rawGrade: null, grade: null, failedConditions: [] }
+  }
+  switch (entry.mode) {
+    case 'passFail':
+      return {
+        status: entry.passed ? 'PASSED' : 'FAILED',
+        rawGrade: null,
+        grade: entry.passed ? 10 : null,
+        failedConditions: [],
+      }
+    case 'final':
+      return {
+        status: entry.grade >= PASSING_GRADE ? 'PASSED' : 'FAILED',
+        rawGrade: null,
+        grade: entry.grade,
+        failedConditions: [],
+      }
+    case 'components':
+      return fromComponents(course, entry.grades)
+  }
+}
+
+function fromComponents(course: Course, grades: Record<string, number | undefined>): CourseResult {
+  const missing = course.components.some((c) => grades[c.code] === undefined)
+  if (course.components.length === 0 || missing) {
+    return { status: 'INCOMPLETE', rawGrade: null, grade: null, failedConditions: [] }
+  }
+
+  // 1. Conditii de admitere (ex. Lab >= 5 ca sa intri in examen)
+  const failedAdmission = course.conditions.filter(
+    (c) => c.type === 'ADMISSION' && !conditionMet(c, grades, null),
+  )
+  if (failedAdmission.length > 0) {
+    return { status: 'NOT_ADMITTED', rawGrade: null, grade: null, failedConditions: failedAdmission }
+  }
+
+  // 2. Media ponderata, rotunjita
+  const raw = weightedSum(course, grades) / 100
+  const grade = roundHalfUp(raw)
+
+  // 3. Conditii de promovare (ex. Examen >= 5) + pragul general de 5
+  const failedPromotion = course.conditions.filter(
+    (c) => c.type === 'PROMOTION' && !conditionMet(c, grades, grade),
+  )
+  const passed = failedPromotion.length === 0 && grade >= PASSING_GRADE
+  return { status: passed ? 'PASSED' : 'FAILED', rawGrade: raw, grade, failedConditions: failedPromotion }
+}
+
+/** Suma (pondere% * nota) a componentelor. Ponderile sunt procente (insumeaza 100). */
+function weightedSum(course: Course, grades: Record<string, number | undefined>): number {
+  return course.components.reduce((sum, c) => sum + c.weight * (grades[c.code] ?? 0), 0)
+}
+
+function conditionMet(c: GradingCondition, grades: Record<string, number | undefined>, finalGrade: number | null) {
+  const value = c.component === null ? finalGrade : grades[c.component]
+  return value !== null && value !== undefined && value + EPSILON >= c.minGrade
+}
+
+// ─────────────── „Ce imi trebuie” la o componenta ───────────────
+
+export type NeededGrade =
+  | { kind: 'possible'; grade: number } // nota minima necesara
+  | { kind: 'impossible' } // ar trebui peste 10
+  | { kind: 'notAdmitted'; failedConditions: GradingCondition[] } // o conditie de admitere e deja picata
+  | { kind: 'missingOtherGrades' } // nu stim inca celelalte componente
+
+/**
+ * Nota minima la componenta `componentCode` (de obicei examenul) ca nota finala sa fie cel putin `target`
+ * (5 = sa treci, 10 = sa iei 10), stiind notele celorlalte componente.
+ */
+export function minGradeFor(
+  course: Course,
+  grades: Record<string, number | undefined>,
+  componentCode: string,
+  target: number,
+): NeededGrade {
+  const component = course.components.find((c) => c.code === componentCode)
+  if (!component) {
+    throw new Error(`Materia ${course.planCode} nu are componenta ${componentCode}`)
+  }
+  const others = course.components.filter((c) => c.code !== componentCode)
+  if (others.some((c) => grades[c.code] === undefined)) {
+    return { kind: 'missingOtherGrades' }
+  }
+
+  // Conditiile de admitere pe celelalte componente trebuie deja indeplinite
+  const failedAdmission = course.conditions.filter(
+    (c) => c.type === 'ADMISSION' && c.component !== componentCode && !conditionMet(c, grades, null),
+  )
+  if (failedAdmission.length > 0) {
+    return { kind: 'notAdmitted', failedConditions: failedAdmission }
+  }
+
+  // Nota finala rotunjita >= target  <=>  media bruta >= target - 0.5
+  const finalTarget = Math.max(
+    target,
+    PASSING_GRADE,
+    ...course.conditions.filter((c) => c.component === null).map((c) => c.minGrade),
+  )
+  const othersSum = others.reduce((sum, c) => sum + c.weight * (grades[c.code] as number), 0)
+  let needed = ((finalTarget - 0.5) * 100 - othersSum) / component.weight
+
+  // Conditiile puse direct pe aceasta componenta (ex. Examen >= 5)
+  for (const c of course.conditions) {
+    if (c.component === componentCode) {
+      needed = Math.max(needed, c.minGrade)
+    }
+  }
+
+  needed = Math.max(ceil2(needed), 1)
+  return needed > 10 + EPSILON ? { kind: 'impossible' } : { kind: 'possible', grade: needed }
+}
+
+// ─────────────── Media pe semestru / an ───────────────
+
+/**
+ * Materiile care intra in medie si in cele 30 de credite:
+ * fara facultative (DFA); dintr-un pachet optional, doar materia aleasa
+ * (daca nu s-a ales inca, prima din pachet tine locul, ca sa numaram creditele o singura data).
+ */
+export function countedCourses(courses: Course[], chosenOptions: Record<string, string>): Course[] {
+  const seenGroups = new Set<string>()
+  return courses.filter((c) => {
+    if (c.regime === 'DFA') return false
+    if (c.optionGroup === null) return true
+    const chosen = chosenOptions[c.optionGroup]
+    if (chosen !== undefined) return c.planCode === chosen
+    if (seenGroups.has(c.optionGroup)) return false
+    seenGroups.add(c.optionGroup)
+    return true
+  })
+}
+
+export interface Summary {
+  /** Media ponderata cu creditele, trunchiata la 2 zecimale; null daca nu e nicio materie completata. */
+  average: number | null
+  /** Suma (nota * credite); o materie picata contribuie cu 0. */
+  points: number
+  /** Credite ale materiilor completate (promovate sau picate). */
+  creditsGraded: number
+  creditsEarned: number
+  creditsTotal: number
+  /** Materiile inca necompletate. */
+  remaining: Course[]
+}
+
+export function summarize(courses: Course[], entries: Record<string, CourseEntry | undefined>): Summary {
+  let points = 0
+  let creditsGraded = 0
+  let creditsEarned = 0
+  let creditsTotal = 0
+  const remaining: Course[] = []
+
+  for (const course of courses) {
+    creditsTotal += course.credits
+    const result = courseResult(course, entries[course.planCode])
+    if (result.status === 'INCOMPLETE') {
+      remaining.push(course)
+      continue
+    }
+    creditsGraded += course.credits
+    if (result.status === 'PASSED') {
+      creditsEarned += course.credits
+      points += (result.grade as number) * course.credits
+    }
+    // FAILED / NOT_ADMITTED: intra in medie cu 0 (creditele raman la numitor)
+  }
+
+  return {
+    average: creditsGraded > 0 ? truncate2(points / creditsGraded) : null,
+    points,
+    creditsGraded,
+    creditsEarned,
+    creditsTotal,
+    remaining,
+  }
+}
+
+export type NeededAverage =
+  | { kind: 'possible'; average: number } // media necesara la materiile cu nota ramase
+  | { kind: 'impossible' }
+  | { kind: 'nothingRemaining' }
+
+/**
+ * Ce medie iti trebuie la materiile ramase ca media finala sa fie cel putin `target`.
+ * Materiile admis/respins ramase sunt presupuse promovate (contribuie cu 10).
+ * Minimul e 5: sub 5 o materie e picata si intra in medie cu 0.
+ */
+export function neededAverage(summary: Summary, target: number): NeededAverage {
+  const numeric = summary.remaining.filter((c) => c.gradingType === 'NUMERIC')
+  const passFail = summary.remaining.filter((c) => c.gradingType === 'PASS_FAIL')
+  const numericCredits = numeric.reduce((s, c) => s + c.credits, 0)
+  const passFailPoints = passFail.reduce((s, c) => s + 10 * c.credits, 0)
+
+  if (numericCredits === 0) {
+    return { kind: 'nothingRemaining' }
+  }
+
+  // media trunchiata >= target  <=>  media bruta >= target
+  const totalCredits = summary.creditsGraded + numericCredits + passFail.reduce((s, c) => s + c.credits, 0)
+  const needed = (target * totalCredits - summary.points - passFailPoints) / numericCredits
+  const rounded = Math.max(ceil2(needed), PASSING_GRADE)
+  return rounded > 10 + EPSILON ? { kind: 'impossible' } : { kind: 'possible', average: rounded }
+}
