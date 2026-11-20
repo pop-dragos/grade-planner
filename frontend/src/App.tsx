@@ -11,7 +11,13 @@ export default function App() {
   const [savedSelection, setSelection] = useLocalStorage<Selection | null>('gp:selection', null)
   const [theme, setTheme] = useLocalStorage<Theme>('gp:theme', 'light')
   const [courses, setCourses] = useState<Course[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [loadFailed, setLoadFailed] = useState(false)
+
+  // Utilizatorul vede un mesaj simplu; detaliul tehnic ramane in consola browserului (F12).
+  const onLoadError = (e: Error) => {
+    console.error('Eroare la incarcarea catalogului:', e)
+    setLoadFailed(true)
+  }
 
   // Tema se aplica pe <html data-theme="...">; CSS-ul are culorile pentru fiecare.
   useEffect(() => {
@@ -21,7 +27,7 @@ export default function App() {
   useEffect(() => {
     fetchPrograms()
       .then(setPrograms)
-      .catch((e: Error) => setError(e.message))
+      .catch(onLoadError)
   }, [])
 
   // Pana alege studentul ceva, pornim de la primul program, cel mai recent an universitar, anul 1 sem 1
@@ -43,7 +49,7 @@ export default function App() {
       .then((result) => {
         if (!cancelled) setCourses(result)
       })
-      .catch((e: Error) => setError(e.message))
+      .catch(onLoadError)
     return () => {
       cancelled = true
     }
@@ -69,9 +75,9 @@ export default function App() {
         </button>
       </header>
 
-      {error && (
+      {loadFailed && (
         <p className="error" role="alert">
-          Nu am putut încărca datele: {error}
+          Nu am putut încărca materiile. Serverul nu răspunde momentan, încearcă din nou puțin mai târziu.
         </p>
       )}
 

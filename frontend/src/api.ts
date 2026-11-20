@@ -53,6 +53,9 @@ async function getJson<T>(url: string): Promise<T> {
   if (!response.ok) {
     throw new Error(`${url} a raspuns cu ${response.status}`)
   }
+  if (!response.headers.get('content-type')?.includes('application/json')) {
+    throw new Error(`${url} nu a intors JSON (probabil API-ul nu e accesibil)`)
+  }
   return response.json() as Promise<T>
 }
 

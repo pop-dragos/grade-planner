@@ -6,3 +6,6 @@ desktop.ini
 
 # Secrete locale
 .env
+
+# Certificatul local al lui Caddy, daca il exporti ca sa-l importi in Windows
+caddy-root.crt

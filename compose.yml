@@ -14,6 +14,40 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/gradeplanner
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Lipseste POSTGRES_PASSWORD in .env}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2.11-alpine
+    ports:
+      - "127.0.0.1:80:80"
+      - "127.0.0.1:443:443"
+      - "127.0.0.1:443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   db-data:
+  caddy-data:
+  caddy-config:
