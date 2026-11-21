@@ -48,22 +48,66 @@ export interface Course {
   conditions: GradingCondition[]
 }
 
-async function getJson<T>(url: string): Promise<T> {
-  const response = await fetch(url)
-  if (!response.ok) {
-    throw new Error(`${url} a raspuns cu ${response.status}`)
+// Pe planul gratuit, backend-ul „adoarme” dupa inactivitate si porneste in pana la un minut.
+// Intre timp, proxy-ul raspunde cu 502/503/504 sau conexiunea pica: reincercam, nu aratam eroare imediat.
+const RETRYABLE_STATUS = new Set([502, 503, 504])
+const SLOW_AFTER_MS = 3_000
+const RETRY_EVERY_MS = 3_000
+const GIVE_UP_AFTER_MS = 90_000
+
+/** onSlow e apelat o singura data, daca raspunsul intarzie (ca UI-ul sa poata explica asteptarea). */
+async function getJson<T>(url: string, onSlow?: () => void): Promise<T> {
+  const started = Date.now()
+  let slowReported = false
+  const reportSlow = () => {
+    if (!slowReported) {
+      slowReported = true
+      onSlow?.()
+    }
   }
-  if (!response.headers.get('content-type')?.includes('application/json')) {
-    throw new Error(`${url} nu a intors JSON (probabil API-ul nu e accesibil)`)
+  const slowTimer = setTimeout(reportSlow, SLOW_AFTER_MS)
+
+  try {
+    for (;;) {
+      let response: Response | null = null
+      try {
+        response = await fetch(url)
+      } catch {
+        response = null // eroare de retea: o tratam ca pe un raspuns temporar
+      }
+
+      if (response && !RETRYABLE_STATUS.has(response.status)) {
+        if (!response.ok) {
+          throw new Error(`${url} a raspuns cu ${response.status}`)
+        }
+        if (!response.headers.get('content-type')?.includes('application/json')) {
+          throw new Error(`${url} nu a intors JSON (probabil API-ul nu e accesibil)`)
+        }
+        return (await response.json()) as T
+      }
+
+      if (Date.now() - started > GIVE_UP_AFTER_MS) {
+        throw new Error(`${url} nu a raspuns nici dupa ${GIVE_UP_AFTER_MS / 1000}s`)
+      }
+      reportSlow()
+      await new Promise((resolve) => setTimeout(resolve, RETRY_EVERY_MS))
+    }
+  } finally {
+    clearTimeout(slowTimer)
   }
-  return response.json() as Promise<T>
 }
 
-export function fetchPrograms(): Promise<Program[]> {
-  return getJson('/api/catalog/programs')
+export function fetchPrograms(onSlow?: () => void): Promise<Program[]> {
+  return getJson('/api/catalog/programs', onSlow)
 }
 
-export function fetchCourses(program: string, academicYear: string, year: number, semester: number): Promise<Course[]> {
+export function fetchCourses(
+  program: string,
+  academicYear: string,
+  year: number,
+  semester: number,
+  onSlow?: () => void,
+): Promise<Course[]> {
   const params = new URLSearchParams({ program, academicYear, year: String(year), semester: String(semester) })
-  return getJson(`/api/catalog/courses?${params}`)
+  return getJson(`/api/catalog/courses?${params}`, onSlow)
 }
