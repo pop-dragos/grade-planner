@@ -1,48 +1,60 @@
 import type { ReactNode } from 'react'
-import type { Course, GradingCondition } from '../api'
+import type { Course } from '../api'
 import { formatNumber } from '../format'
 import { courseResult, minGradeFor, type CourseResult, type NeededGrade } from '../grading'
 import { emptyCourse, toEntry, type StoredCourse } from '../storedGrades'
 import { GradeInput } from './GradeInput'
+import { Segmented } from './Segmented'
 
 interface Props {
   course: Course
   stored: StoredCourse | undefined
   onChange: (next: StoredCourse) => void
-  /** Pentru pachetele optionale: dropdown-ul cu materiile din pachet, afisat in locul titlului. */
-  optionPicker?: ReactNode
+  /** Titlu afisat in locul numelui materiei (ex. „Limbă străină I” pentru un pachet optional). */
+  title?: string
+  /** Alegerea variantei dintr-un pachet optional. */
+  picker?: ReactNode
 }
 
 const EVALUATION = { E: 'Examen', C: 'Colocviu', V: 'Verificare' } as const
 
-export function CourseCard({ course, stored, onChange, optionPicker }: Props) {
+export function CourseCard({ course, stored, onChange, title, picker }: Props) {
   const s = stored ?? emptyCourse()
   const result = courseResult(course, toEntry(course, stored))
   const componentsMode = s.mode === 'components' && course.rulesStatus === 'CLEAR'
   const canUseComponents = course.rulesStatus === 'CLEAR' && course.gradingType === 'NUMERIC'
+  const syllabusNotes = [
+    ...course.conditions.map((c) => c.sourceText).filter((t): t is string => !!t),
+    ...course.extraRequirements,
+  ].filter((t, i, all) => all.indexOf(t) === i)
 
   return (
-    <article className={`card status-${result.status.toLowerCase()}`}>
-      <div className="card-main">
-        <div className="card-title">
-          {optionPicker ?? <h3>{course.name}</h3>}
-          <p className="meta">
+    <li className="row">
+      <div className="row-main">
+        <div className="row-text">
+          <span className="row-title">{title ?? course.name}</span>
+          <span className="row-subtitle">
             {course.credits} credite · {EVALUATION[course.evaluationForm]}
-            {course.syllabus?.academicYear && ` · fișa ${course.syllabus.academicYear}`}
-          </p>
+          </span>
+          <span className="status-below">
+            <Status result={result} course={course} />
+          </span>
         </div>
 
-        <div className="card-grade">
-          <StatusChip result={result} course={course} />
+        <div className="row-accessory">
+          <span className="status-beside">
+            <Status result={result} course={course} />
+          </span>
           {course.gradingType === 'PASS_FAIL' ? (
-            <div className="segmented" role="group" aria-label={`Rezultat ${course.name}`}>
-              <button type="button" aria-pressed={s.passed === true} onClick={() => onChange({ ...s, passed: true })}>
-                Admis
-              </button>
-              <button type="button" aria-pressed={s.passed === false} onClick={() => onChange({ ...s, passed: false })}>
-                Respins
-              </button>
-            </div>
+            <Segmented
+              label={`Rezultat ${course.name}`}
+              options={[
+                { value: 'admis', label: 'Admis' },
+                { value: 'respins', label: 'Respins' },
+              ]}
+              value={s.passed === undefined ? undefined : s.passed ? 'admis' : 'respins'}
+              onChange={(v) => onChange({ ...s, passed: v === 'admis' })}
+            />
           ) : (
             !componentsMode && (
               <GradeInput
@@ -55,10 +67,12 @@ export function CourseCard({ course, stored, onChange, optionPicker }: Props) {
         </div>
       </div>
 
+      {picker && <div className="row-picker">{picker}</div>}
+
       {componentsMode && <ComponentsForm course={course} stored={s} onChange={onChange} />}
 
-      {(canUseComponents || course.rulesStatus === 'AMBIGUOUS' || course.extraRequirements.length > 0) && (
-        <div className="card-footer">
+      {(canUseComponents || syllabusNotes.length > 0) && (
+        <div className="row-footer">
           {canUseComponents && (
             <label className="toggle">
               <input
@@ -66,25 +80,22 @@ export function CourseCard({ course, stored, onChange, optionPicker }: Props) {
                 checked={componentsMode}
                 onChange={(e) => onChange({ ...s, mode: e.target.checked ? 'components' : 'final' })}
               />
-              Calculează din componente
+              <span>Calculează din componente</span>
             </label>
           )}
-          {course.rulesStatus === 'AMBIGUOUS' && (
-            <p className="warning">Regulile din fișă nu sunt clare sau nu se aplică strict, așa că introdu nota finală.</p>
-          )}
-          {course.extraRequirements.length > 0 && (
-            <details className="requirements">
+          {syllabusNotes.length > 0 && (
+            <details className="disclosure">
               <summary>Condiții din fișă</summary>
               <ul>
-                {course.extraRequirements.map((r) => (
-                  <li key={r}>{r}</li>
+                {syllabusNotes.map((note) => (
+                  <li key={note}>{note}</li>
                 ))}
               </ul>
             </details>
           )}
         </div>
       )}
-    </article>
+    </li>
   )
 }
 
@@ -96,9 +107,9 @@ function ComponentsForm({ course, stored, onChange }: { course: Course; stored: 
   return (
     <div className="components">
       {course.components.map((c) => (
-        <div className="component-row" key={c.code}>
+        <div className="component" key={c.code}>
           <span>
-            {c.label} <span className="meta">{c.weight}%</span>
+            {c.label} <span className="row-subtitle">{c.weight}%</span>
           </span>
           <GradeInput
             decimals
@@ -109,8 +120,8 @@ function ComponentsForm({ course, stored, onChange }: { course: Course; stored: 
         </div>
       ))}
       {target && (
-        <p className="needed">
-          La <strong>{target.label}</strong> îți trebuie {describeNeeded(minGradeFor(course, stored.components, target.code, 5))}{' '}
+        <p className="hint">
+          La {target.label.toLowerCase()} îți trebuie {describeNeeded(minGradeFor(course, stored.components, target.code, 5))}{' '}
           ca să treci și {describeNeeded(minGradeFor(course, stored.components, target.code, 10))} pentru 10.
         </p>
       )}
@@ -123,7 +134,7 @@ function describeNeeded(n: NeededGrade): string {
     case 'possible':
       return `minim ${formatNumber(n.grade)}`
     case 'impossible':
-      return 'peste 10 (imposibil)'
+      return 'peste 10'
     case 'notAdmitted':
       return '— (nu ești admis la examen)'
     case 'missingOtherGrades':
@@ -131,33 +142,19 @@ function describeNeeded(n: NeededGrade): string {
   }
 }
 
-function StatusChip({ result, course }: { result: CourseResult; course: Course }) {
-  const reasons = result.failedConditions.map((c) => describeCondition(c, course)).join(', ')
+function Status({ result, course }: { result: CourseResult; course: Course }) {
   switch (result.status) {
     case 'INCOMPLETE':
       return null
     case 'PASSED':
       return (
         <span className="chip passed">
-          {course.gradingType === 'PASS_FAIL' ? 'Promovat' : `Promovat · ${result.grade}`}
+          {course.gradingType === 'NUMERIC' && result.rawGrade !== null ? `Promovat · ${result.grade}` : 'Promovat'}
         </span>
       )
     case 'NOT_ADMITTED':
-      return (
-        <span className="chip failed" title={reasons}>
-          Neadmis la examen
-        </span>
-      )
+      return <span className="chip failed">Neadmis</span>
     case 'FAILED':
-      return (
-        <span className="chip failed" title={reasons || undefined}>
-          Nepromovat{result.grade !== null && course.gradingType === 'NUMERIC' && ` · ${result.grade}`}
-        </span>
-      )
+      return <span className="chip failed">Nepromovat</span>
   }
-}
-
-function describeCondition(c: GradingCondition, course: Course): string {
-  const label = c.component === null ? 'Nota finală' : (course.components.find((x) => x.code === c.component)?.label ?? c.component)
-  return `${label} sub ${c.minGrade}`
 }

@@ -1,9 +1,10 @@
-import { useState, type ReactNode } from 'react'
+import { useState } from 'react'
 import type { Course } from '../api'
 import { countedCourses, summarize } from '../grading'
 import { EMPTY_CURRICULUM, toEntry, type StoredCourse, type StoredCurriculum } from '../storedGrades'
 import { useLocalStorage } from '../useLocalStorage'
 import { CourseCard } from './CourseCard'
+import { Segmented } from './Segmented'
 import { SummaryPanel } from './SummaryPanel'
 
 interface Props {
@@ -12,15 +13,17 @@ interface Props {
   storageKey: string
 }
 
-/** O materie simpla sau un pachet optional (ex. limbile straine) afisat ca un singur card. */
+/** O materie simpla sau un pachet optional (ex. limbile straine) afisat ca un singur rand. */
 type Item = { kind: 'course'; course: Course } | { kind: 'group'; group: string; courses: Course[] }
 
 export function SemesterView({ courses, storageKey }: Props) {
   const [saved, setSaved] = useLocalStorage<StoredCurriculum>(storageKey, EMPTY_CURRICULUM)
-  // Creste la „Sterge notele”, ca sa remonteze cardurile (campurile isi tin textul local).
+  // Creste la „Sterge notele”, ca sa remonteze randurile (campurile isi tin textul local).
   const [version, setVersion] = useState(0)
 
-  const counted = countedCourses(courses, saved.options)
+  // Facultativele nu intra in medie, deci nu le afisam deloc.
+  const visible = courses.filter((c) => c.regime !== 'DFA')
+  const counted = countedCourses(visible, saved.options)
   const entries = Object.fromEntries(counted.map((c) => [c.planCode, toEntry(c, saved.courses[c.planCode])]))
   const summary = summarize(counted, entries)
 
@@ -55,61 +58,29 @@ export function SemesterView({ courses, storageKey }: Props) {
       <CourseCard
         key={`${chosen.planCode}-${version}`}
         course={chosen}
+        title={groupTitle(item.courses)}
         stored={saved.courses[chosen.planCode]}
         onChange={(next) => updateCourse(chosen.planCode, next)}
-        optionPicker={
-          <select
-            aria-label="Alege materia din pachetul opțional"
+        picker={
+          <Segmented
+            label="Alege varianta"
+            options={item.courses.map((c) => ({ value: c.planCode, label: variantLabel(c.name) }))}
             value={chosen.planCode}
-            onChange={(e) => chooseOption(item.group, e.target.value)}
-          >
-            {item.courses.map((c) => (
-              <option key={c.planCode} value={c.planCode}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+            onChange={(planCode) => chooseOption(item.group, planCode)}
+          />
         }
       />
     )
   }
 
-  const items = toItems(courses.filter((c) => c.regime !== 'DFA'))
-  const required = items.filter((i) => i.kind === 'course' && i.course.regime === 'DOB')
-  const optional = items.filter((i) => !(i.kind === 'course' && i.course.regime === 'DOB'))
-  const extra = toItems(courses.filter((c) => c.regime === 'DFA'))
-
   return (
     <div className="layout">
-      <div className="sections">
-        {required.length > 0 && <Section title="Obligatorii">{required.map(renderItem)}</Section>}
-        {optional.length > 0 && (
-          <Section title="Opționale" hint="Alege materia din pachet; doar ea intră în medie.">
-            {optional.map(renderItem)}
-          </Section>
-        )}
-        {extra.length > 0 && (
-          <details className="section extra">
-            <summary>
-              Facultative <span className="hint">· {extra.length} materii, nu intră în medie</span>
-            </summary>
-            <div className="cards">{extra.map(renderItem)}</div>
-          </details>
-        )}
-      </div>
+      <section aria-label="Materii">
+        <h2 className="list-header">Materii</h2>
+        <ul className="list">{toItems(visible).map(renderItem)}</ul>
+      </section>
       <SummaryPanel summary={summary} onReset={resetSemester} />
     </div>
-  )
-}
-
-function Section({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
-  return (
-    <section className="section">
-      <h2>
-        {title} {hint && <span className="hint">· {hint}</span>}
-      </h2>
-      <div className="cards">{children}</div>
-    </section>
   )
 }
 
@@ -130,4 +101,22 @@ function toItems(courses: Course[]): Item[] {
     members.push(course)
   }
   return items
+}
+
+const LANGUAGE = /^Limba\s+(\S+)(?:\s+([IVX]+))?$/i
+
+/** „Limba engleză I”, „Limba germană I” -> „Limbă străină I”. Alt tip de pachet -> „Pachet opțional”. */
+function groupTitle(courses: Course[]): string {
+  const match = courses[0].name.match(LANGUAGE)
+  if (match && courses.every((c) => LANGUAGE.test(c.name))) {
+    return match[2] ? `Limbă străină ${match[2]}` : 'Limbă străină'
+  }
+  return 'Pachet opțional'
+}
+
+/** „Limba engleză I” -> „Engleză”; alte nume raman neschimbate. */
+function variantLabel(name: string): string {
+  const match = name.match(LANGUAGE)
+  if (!match) return name
+  return match[1].charAt(0).toUpperCase() + match[1].slice(1)
 }

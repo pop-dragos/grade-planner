@@ -1,4 +1,5 @@
 import type { Program } from '../api'
+import { Segmented } from './Segmented'
 
 export interface Selection {
   program: string
@@ -18,9 +19,9 @@ export function CatalogSelector({ programs, value, onChange }: Props) {
 
   return (
     <div className="selector">
-      <label>
-        Specializarea
+      <div className="selector-row">
         <select
+          aria-label="Specializarea"
           value={program.code}
           onChange={(e) => {
             const next = programs.find((p) => p.code === e.target.value) ?? program
@@ -33,34 +34,35 @@ export function CatalogSelector({ programs, value, onChange }: Props) {
             </option>
           ))}
         </select>
-      </label>
-      <label>
-        Anul universitar
-        <select value={value.academicYear} onChange={(e) => onChange({ ...value, academicYear: e.target.value })}>
+        <select
+          aria-label="Anul universitar"
+          value={value.academicYear}
+          onChange={(e) => onChange({ ...value, academicYear: e.target.value })}
+        >
           {program.academicYears.map((y) => (
             <option key={y} value={y}>
               {y}
             </option>
           ))}
         </select>
-      </label>
-      <label>
-        Anul de studiu
-        <select value={value.year} onChange={(e) => onChange({ ...value, year: Number(e.target.value) })}>
-          {[1, 2, 3, 4].map((y) => (
-            <option key={y} value={y}>
-              Anul {y}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        Semestrul
-        <select value={value.semester} onChange={(e) => onChange({ ...value, semester: Number(e.target.value) })}>
-          <option value={1}>Semestrul 1</option>
-          <option value={2}>Semestrul 2</option>
-        </select>
-      </label>
+      </div>
+      <div className="selector-row">
+        <Segmented
+          label="Anul de studiu"
+          options={[1, 2, 3, 4].map((y) => ({ value: y, label: `Anul ${y}` }))}
+          value={value.year}
+          onChange={(year) => onChange({ ...value, year })}
+        />
+        <Segmented
+          label="Semestrul"
+          options={[
+            { value: 1, label: 'Sem. 1' },
+            { value: 2, label: 'Sem. 2' },
+          ]}
+          value={value.semester}
+          onChange={(semester) => onChange({ ...value, semester })}
+        />
+      </div>
     </div>
   )
 }

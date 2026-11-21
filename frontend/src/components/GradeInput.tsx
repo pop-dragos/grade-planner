@@ -22,7 +22,6 @@ export function GradeInput({ value, onChange, label, decimals = false }: Props) 
     <input
       className="grade-input"
       inputMode="decimal"
-      placeholder="—"
       aria-label={label}
       aria-invalid={invalid}
       title={invalid ? (decimals ? 'Nota trebuie sa fie intre 1 si 10' : 'Nota finala e un numar intreg 1-10') : undefined}

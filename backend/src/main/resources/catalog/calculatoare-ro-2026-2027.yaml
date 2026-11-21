@@ -63,7 +63,6 @@ courses:
         source_text: "Seminar | Abilităţi de rezolvare a problemelor. Prezenta. Activitate | Examen scris | 80%"
     extra_requirements:
       - "Standard minim de performanţă: nota 5 la examen."
-      - "În practică, o parte a notei a funcționat ca bonus care ajustează nota finală, nu ca o componentă de sine stătătoare."
 
   - plan_code: "3.00"
     name: Matematici speciale
@@ -79,15 +78,15 @@ courses:
         kind: EXAM
         label: Examen scris – curs
         weight: 40
-        source_text: "Curs | ... | Examen scris | 40%"
+        source_text: "Curs | Examen scris | 40%"
       - code: problems
         kind: CONTINUOUS
         label: Examen scris și evaluare continuă – seminar
         weight: 60
-        source_text: "Seminar | ... | Examen scris și evaluarea continuă pe parcursul semestrului | 60%"
+        source_text: "Seminar | Examen scris și evaluarea continuă pe parcursul semestrului | 60%"
     extra_requirements:
-      - "Condiții de participare la examenul final: maxim 4 absențe la seminar."
-      - "Condiții de promovare: examen scris >= 5 (fișa nu precizează la care dintre componente se referă)."
+      - "Conditii de participare la examenul final: maxim 4 absențe la seminar, conform Regulamentului ECTS al UTCluj."
+      - "Condiții de promovare: examen scris >=5."
 
   - plan_code: "4.00"
     name: Proiectare logică

@@ -17,18 +17,19 @@ export function SummaryPanel({ summary, onReset }: Props) {
     <aside className="summary" aria-label="Sumar semestru">
       <div className="summary-stats">
         <div className="stat">
-          <span className="stat-label">Media semestrului</span>
-          <strong className="stat-value">{summary.average === null ? '—' : formatNumber(summary.average)}</strong>
+          <span className="stat-label">Media</span>
+          <span className="stat-value">{summary.average === null ? '—' : formatNumber(summary.average)}</span>
         </div>
         <div className="stat">
-          <span className="stat-label">Credite promovate</span>
-          <strong className="stat-value">
+          <span className="stat-label">Credite</span>
+          <span className="stat-value">
             {summary.creditsEarned}
-            <span className="stat-total"> / {summary.creditsTotal}</span>
-          </strong>
+            <span className="stat-total">/{summary.creditsTotal}</span>
+          </span>
           <div
             className="progress"
             role="progressbar"
+            aria-label="Credite promovate"
             aria-valuemin={0}
             aria-valuemax={summary.creditsTotal}
             aria-valuenow={summary.creditsEarned}
@@ -38,10 +39,9 @@ export function SummaryPanel({ summary, onReset }: Props) {
         </div>
       </div>
 
-      <div className="target">
-        <label htmlFor="target">Vreau media</label>
+      <label className="target">
+        <span>Vreau media</span>
         <input
-          id="target"
           className="grade-input"
           inputMode="decimal"
           placeholder="8,50"
@@ -49,10 +49,10 @@ export function SummaryPanel({ summary, onReset }: Props) {
           aria-invalid={target === null}
           onChange={(e) => setTargetText(e.target.value)}
         />
-      </div>
-      {typeof target === 'number' && <p className="needed">{describeTarget(summary, target)}</p>}
+      </label>
+      {typeof target === 'number' && <p className="hint">{describeTarget(summary, target)}</p>}
 
-      <button type="button" className="link-button" onClick={onReset}>
+      <button type="button" className="text-button destructive" onClick={onReset}>
         Șterge notele semestrului
       </button>
     </aside>
