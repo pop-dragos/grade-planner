@@ -12,10 +12,15 @@ export default function App() {
   const [theme, setTheme] = useLocalStorage<Theme>('gp:theme', 'light')
   const [courses, setCourses] = useState<Course[] | null>(null)
   const [loadFailed, setLoadFailed] = useState(false)
+  // true cat timp asteptam un server care tocmai porneste (planul gratuit „adoarme” backend-ul)
+  const [waking, setWaking] = useState(false)
+
+  const onSlow = () => setWaking(true)
 
   // Utilizatorul vede un mesaj simplu; detaliul tehnic ramane in consola browserului (F12).
   const onLoadError = (e: Error) => {
     console.error('Eroare la incarcarea catalogului:', e)
+    setWaking(false)
     setLoadFailed(true)
   }
 
@@ -25,8 +30,11 @@ export default function App() {
   }, [theme])
 
   useEffect(() => {
-    fetchPrograms()
-      .then(setPrograms)
+    fetchPrograms(onSlow)
+      .then((result) => {
+        setWaking(false)
+        setPrograms(result)
+      })
       .catch(onLoadError)
   }, [])
 
@@ -45,8 +53,9 @@ export default function App() {
   useEffect(() => {
     if (!program || !academicYear || !year || !semester) return
     let cancelled = false // ignora raspunsul daca intre timp s-a schimbat selectia
-    fetchCourses(program, academicYear, year, semester)
+    fetchCourses(program, academicYear, year, semester, onSlow)
       .then((result) => {
+        setWaking(false)
         if (!cancelled) setCourses(result)
       })
       .catch(onLoadError)
@@ -74,6 +83,13 @@ export default function App() {
           {theme === 'light' ? '🌙' : '☀️'}
         </button>
       </header>
+
+      {waking && !loadFailed && (
+        <p className="notice" role="status">
+          <span className="spinner" aria-hidden="true" />
+          Serverul pornește, poate dura până la un minut…
+        </p>
+      )}
 
       {loadFailed && (
         <p className="error" role="alert">
