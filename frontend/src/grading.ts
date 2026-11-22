@@ -254,6 +254,32 @@ export function neededAverage(summary: Summary, target: number): NeededAverage {
   return rounded > 10 + EPSILON ? { kind: 'impossible' } : { kind: 'possible', average: rounded }
 }
 
+// ─────────────── Media anului ───────────────
+
+export interface AnnualAverage {
+  /** null daca nu e nicio nota in tot anul. */
+  average: number | null
+  /** true cat timp un semestru nu e complet: media se va mai schimba. */
+  provisional: boolean
+}
+
+/**
+ * Media anuala = media aritmetica a celor doua medii semestriale (fiecare deja trunchiata),
+ * trunchiata la 2 zecimale. Cat timp un semestru e incomplet, afisam provizoriu media ponderata
+ * a notelor introduse pana acum.
+ */
+export function annualAverage(first: Summary, second: Summary): AnnualAverage {
+  const complete = (s: Summary) => s.creditsGraded > 0 && s.remaining.length === 0
+  if (complete(first) && complete(second)) {
+    return { average: truncate2(((first.average as number) + (second.average as number)) / 2), provisional: false }
+  }
+  const credits = first.creditsGraded + second.creditsGraded
+  return {
+    average: credits > 0 ? truncate2((first.points + second.points) / credits) : null,
+    provisional: true,
+  }
+}
+
 // ─────────────── Plan de marire ───────────────
 //
 // Reguli (regulamentul UTCN, cum le-a confirmat utilizatorul):
@@ -285,9 +311,22 @@ export interface GradeChange {
   retake: boolean
 }
 
+/**
+ * O schimbare din plan, spusa pentru om: „+1 (8 -> 9) la oricare `count` dintre `options`”.
+ * Materiile din `options` sunt echivalente (aceleasi credite, aceeasi nota acum), deci oricare merge la fel.
+ */
+export interface ChangeGroup {
+  from: number | null
+  to: number
+  retake: boolean
+  count: number
+  options: Course[]
+}
+
 export type ImprovementPlan =
   | { kind: 'already'; average: number }
-  | { kind: 'plan'; changes: GradeChange[]; newAverage: number }
+  /** changes = o varianta concreta; groups = aceeasi varianta, cu alternativele echivalente grupate. */
+  | { kind: 'plan'; changes: GradeChange[]; groups: ChangeGroup[]; newAverage: number }
   /** bestAverage = cea mai buna medie posibila cu marirle ramase (null daca nu e nicio nota). */
   | { kind: 'impossible'; bestAverage: number | null }
 
@@ -307,6 +346,9 @@ interface Evaluated {
   exams: number
   totalSteps: number
   maxStep: number
+  /** Cea mai mare nota ceruta (un 10 e mai greu de luat decat un 9). */
+  maxTarget: number
+  sumTarget: number
 }
 
 /** „Pasul” unei schimbari: cu cat creste nota (o restanta de la 4 la 5 = 1 pas). */
@@ -335,10 +377,17 @@ export function planImprovements(
   const improvable: Candidate[] = []
   const retakes: Candidate[] = []
   for (const course of courses) {
-    if (course.gradingType !== 'NUMERIC' || excluded.has(course.planCode)) continue
+    if (excluded.has(course.planCode)) continue
     if (options.semester !== undefined && course.semester !== options.semester) continue
     const result = courseResult(course, entries[course.planCode])
     if (result.status === 'INCOMPLETE') continue
+    if (course.gradingType === 'PASS_FAIL') {
+      // Respins conteaza 0; refacerea (Admis) valoreaza 10 si e restanta, nu consuma din mariri.
+      if (result.status !== 'PASSED') {
+        retakes.push({ course, from: null, base: 0, minGrade: 10, retake: true })
+      }
+      continue
+    }
     if (result.status === 'PASSED') {
       const grade = result.grade as number
       if (grade < 10) improvable.push({ course, from: grade, base: grade, minGrade: grade + 1, retake: false })
@@ -378,8 +427,44 @@ export function planImprovements(
   return {
     kind: 'plan',
     changes,
+    groups: groupEquivalent(best, [...improvable, ...retakes]),
     newAverage: truncate2((summary.points + best.gained) / summary.creditsGraded),
   }
+}
+
+/** Doua materii sunt echivalente pentru plan daca schimbarea uneia cu cealalta nu schimba nimic. */
+function signature(c: Candidate): string {
+  return [c.retake, c.course.gradingType, c.course.credits, c.base, c.from].join('|')
+}
+
+/**
+ * Grupeaza schimbarile din plan cu alternativele lor echivalente: daca planul cere +1 la o materie de 4 credite
+ * cu 8, iar studentul are trei astfel de materii, ii spunem „la oricare dintre cele trei”.
+ */
+function groupEquivalent(best: Evaluated, eligible: Candidate[]): ChangeGroup[] {
+  const bySignature = new Map<string, [Candidate, number][]>()
+  for (const [c, to] of best.grades) {
+    const list = bySignature.get(signature(c)) ?? []
+    list.push([c, to])
+    bySignature.set(signature(c), list)
+  }
+
+  const groups: ChangeGroup[] = []
+  for (const [sig, chosen] of bySignature) {
+    const [first, to] = chosen[0]
+    if (chosen.every(([, t]) => t === to)) {
+      const options = eligible.filter((c) => signature(c) === sig).map((c) => c.course)
+      groups.push({ from: first.from, to, retake: first.retake, count: chosen.length, options })
+    } else {
+      // Aceeasi materie „tip”, dar note tinta diferite: le listam separat, fara alternative.
+      for (const [c, t] of chosen) {
+        groups.push({ from: c.from, to: t, retake: c.retake, count: 1, options: [c.course] })
+      }
+    }
+  }
+  return groups.sort(
+    (a, b) => Number(a.retake) - Number(b.retake) || b.options[0].credits - a.options[0].credits,
+  )
 }
 
 /**
@@ -419,19 +504,27 @@ function evaluate(chosen: Candidate[], missing: number, strategy: Strategy): Eva
   }
 
   const steps = chosen.map((c) => step(c, grades.get(c) as number))
+  const targets = chosen.map((c) => grades.get(c) as number)
   return {
     grades,
     gained,
     exams: chosen.length,
     totalSteps: steps.reduce((s, x) => s + x, 0),
     maxStep: Math.max(...steps),
+    maxTarget: Math.max(...targets),
+    sumTarget: targets.reduce((s, x) => s + x, 0),
   }
 }
 
-/** a e mai bun decat b? Comparam pe rand criteriile strategiei. */
+/**
+ * a e mai bun decat b? Comparam pe rand criteriile strategiei; la egalitate preferam note tinta mai mici
+ * (8 -> 9 e mai usor de obtinut decat 9 -> 10).
+ */
 function better(a: Evaluated, b: Evaluated, strategy: Strategy): boolean {
   const key = (e: Evaluated) =>
-    strategy === 'fewestExams' ? [e.exams, e.totalSteps, e.maxStep] : [e.maxStep, e.exams, e.totalSteps]
+    strategy === 'fewestExams'
+      ? [e.exams, e.totalSteps, e.maxStep, e.maxTarget, e.sumTarget]
+      : [e.maxStep, e.exams, e.totalSteps, e.maxTarget, e.sumTarget]
   const [ka, kb] = [key(a), key(b)]
   for (let i = 0; i < ka.length; i++) {
     if (ka[i] !== kb[i]) return ka[i] < kb[i]
