@@ -388,12 +388,20 @@ select {
 .summary {
   position: sticky;
   top: 20px;
-  display: grid;
-  gap: 16px;
   padding: 20px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
+}
+
+.summary-body {
+  display: grid;
+  gap: 16px;
+}
+
+/* Bara mica de jos exista doar pe telefon */
+.summary-mini {
+  display: none;
 }
 
 .summary-stats {
@@ -603,6 +611,24 @@ select {
   color: var(--text);
 }
 
+/* Alternativele echivalente: „la oricare dintre” */
+.plan-options {
+  display: grid;
+  gap: 2px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.plan-options li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-left: 10px;
+  border-left: 2px solid var(--border);
+}
+
 .plan-exclude {
   width: 26px;
   height: 26px;
@@ -630,22 +656,15 @@ select {
   cursor: pointer;
 }
 
-.text-button.destructive:hover,
-.reset-below-list:hover {
+.text-button.destructive:hover {
   color: var(--bad);
 }
 
-/* Pe desktop butonul sta in sumar; cel de sub lista apare doar pe telefon. */
-.reset-below-list {
-  display: none;
-  margin: 16px auto 0;
-}
-
-/* ─────────── Telefon: o coloana, sumarul devine bara fixa jos ─────────── */
+/* ─────────── Telefon: o coloana; cardul de sumar e sub materii, ca pe desktop ─────────── */
 
 @media (max-width: 860px) {
   .page {
-    padding: 24px 16px 180px;
+    padding: 24px 16px 80px;
   }
 
   .app-header h1 {
@@ -656,22 +675,48 @@ select {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  /* Cardul de sumar: acelasi continut ca pe desktop, in pagina, sub lista de materii */
   .summary {
+    position: static;
+  }
+
+  /* Bara mica de jos: media mereu vizibila cat completezi notele; un tap duce la card */
+  .summary-mini {
     position: fixed;
-    top: auto;
-    bottom: 0;
     left: 0;
     right: 0;
+    bottom: 0;
     z-index: 10;
-    gap: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
     padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
     border: 0;
     border-top: 1px solid var(--border);
     border-radius: 14px 14px 0 0;
+    background: var(--surface);
     box-shadow: 0 -4px 16px rgb(16 24 40 / 10%);
-    /* planul de marire poate fi lung: bara nu acopera mai mult de jumatate de ecran */
-    max-height: 55vh;
-    overflow-y: auto;
+    font-size: 0.95rem;
+    color: var(--muted);
+    cursor: pointer;
+    transition: transform 0.2s ease;
+  }
+
+  .summary-mini strong {
+    color: var(--text);
+    font-size: 1.05rem;
+  }
+
+  .summary-mini-arrow {
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  /* Ascunsa cand cardul e pe ecran (fara informatie dubla) sau cat timp tastezi o nota */
+  .summary-mini.hidden {
+    transform: translateY(110%);
   }
 
   .summary-stats {
@@ -680,18 +725,6 @@ select {
 
   .stat-value {
     font-size: 1.5rem;
-  }
-
-  .target {
-    padding-top: 10px;
-  }
-
-  .text-button.destructive {
-    display: none;
-  }
-
-  .reset-below-list {
-    display: block;
   }
 
   .row {

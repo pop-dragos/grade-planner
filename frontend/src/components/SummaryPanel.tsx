@@ -1,7 +1,14 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import type { Course } from '../api'
 import { formatNumber, parseGrade } from '../format'
-import { neededAverage, planImprovements, type CourseEntry, type Strategy, type Summary } from '../grading'
+import {
+  neededAverage,
+  planImprovements,
+  type AnnualAverage,
+  type CourseEntry,
+  type Strategy,
+  type Summary,
+} from '../grading'
 import { useLocalStorage } from '../useLocalStorage'
 import { Segmented } from './Segmented'
 
@@ -15,104 +22,212 @@ export interface Scope {
 interface Props {
   semester: Scope
   year: Scope
+  /** Media anului afisata (media aritmetica a semestrelor). */
+  annual: AnnualAverage
   onReset: () => void
 }
 
 const MAX_IMPROVEMENTS = 4
 const FREE_IMPROVEMENTS = 2
 
-/** Pe ecran lat: coloana din dreapta, fixa la scroll. Pe telefon: bara fixa in partea de jos. */
-export function SummaryPanel({ semester, year, onReset }: Props) {
+/**
+ * Pe ecran lat: coloana din dreapta, fixa la scroll.
+ * Pe telefon: o bara de un rand jos, care se deschide la apasare si se ascunde cat timp tastezi o nota.
+ */
+export function SummaryPanel({ semester, year, annual, onReset }: Props) {
   const [targetText, setTargetText] = useState('')
   const [targetScope, setTargetScope] = useState<'semester' | 'year'>('year')
+  const cardRef = useRef<HTMLElement>(null)
+  const cardVisible = useIsVisible(cardRef)
+  const typing = useTypingOutside('.summary')
   const target = parseGrade(targetText)
   const summary = semester.summary
   const progress = summary.creditsTotal > 0 ? (summary.creditsEarned / summary.creditsTotal) * 100 : 0
+  const annualText = annual.average === null ? '—' : formatNumber(annual.average)
 
   return (
-    <aside className="summary" aria-label="Sumar semestru">
-      <div className="summary-stats">
-        <div className="stat">
-          <span className="stat-label">Media semestrului</span>
-          {summary.average === null ? (
-            <span className="stat-empty">Introdu o notă</span>
-          ) : (
-            <span className="stat-value">{formatNumber(summary.average)}</span>
-          )}
-          {year.summary.average !== null && (
-            <span className="stat-sub">
-              Media anului: <strong>{formatNumber(year.summary.average)}</strong>
-            </span>
-          )}
-        </div>
-        <div className="stat">
-          <span className="stat-label">Credite</span>
-          <span className="stat-value">
-            {summary.creditsEarned}
-            <span className="stat-total">/{summary.creditsTotal}</span>
-          </span>
-          <div
-            className="progress"
-            role="progressbar"
-            aria-label="Credite promovate"
-            aria-valuemin={0}
-            aria-valuemax={summary.creditsTotal}
-            aria-valuenow={summary.creditsEarned}
-          >
-            <div className="progress-fill" style={{ width: `${progress}%` }} />
-          </div>
-        </div>
-      </div>
-
-      <div className="target">
-        <label className="target-row">
-          <span>Vreau media</span>
-          <input
-            className="grade-input"
-            inputMode="decimal"
-            placeholder="8,50"
-            value={targetText}
-            aria-invalid={target === null}
-            onChange={(e) => setTargetText(e.target.value)}
-          />
-        </label>
-        <Segmented
-          label="Media pentru"
-          options={[
-            { value: 'year', label: 'An' },
-            { value: 'semester', label: 'Semestru' },
-          ]}
-          value={targetScope}
-          onChange={setTargetScope}
-        />
-      </div>
-
-      {typeof target === 'number' && (
-        <PlanAnswer
-          key={targetScope}
-          period={targetScope}
-          scope={targetScope === 'year' ? year : semester}
-          target={target}
-        />
-      )}
-
-      <button type="button" className="text-button destructive" onClick={onReset}>
-        Șterge notele semestrului
+    <>
+      {/* Doar pe telefon: bara mica de jos, cat timp cardul nu e pe ecran; un tap duce la card. */}
+      <button
+        type="button"
+        className={`summary-mini${cardVisible || typing ? ' hidden' : ''}`}
+        onClick={() => cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+        aria-label="Mergi la medie și planul de măriri"
+      >
+        <span>
+          Media <strong>{summary.average === null ? '—' : formatNumber(summary.average)}</strong>
+        </span>
+        <span>
+          An <strong>{annualText}</strong>
+        </span>
+        <span>
+          Credite <strong>{summary.creditsEarned}</strong>/{summary.creditsTotal}
+        </span>
+        <span className="summary-mini-arrow" aria-hidden="true">
+          ↓
+        </span>
       </button>
-    </aside>
+
+      <aside ref={cardRef} className="summary" aria-label="Sumar semestru">
+        <div className="summary-body">
+          <div className="summary-stats">
+            <div className="stat">
+              <span className="stat-label">Media semestrului</span>
+              {summary.average === null ? (
+                <span className="stat-empty">Introdu o notă</span>
+              ) : (
+                <span className="stat-value">{formatNumber(summary.average)}</span>
+              )}
+              {annual.average !== null && (
+                <span className="stat-sub">
+                  Media anului: <strong>{annualText}</strong>
+                  {annual.provisional && ' (provizorie)'}
+                </span>
+              )}
+            </div>
+            <div className="stat">
+              <span className="stat-label">Credite</span>
+              <span className="stat-value">
+                {summary.creditsEarned}
+                <span className="stat-total">/{summary.creditsTotal}</span>
+              </span>
+              <div
+                className="progress"
+                role="progressbar"
+                aria-label="Credite promovate"
+                aria-valuemin={0}
+                aria-valuemax={summary.creditsTotal}
+                aria-valuenow={summary.creditsEarned}
+              >
+                <div className="progress-fill" style={{ width: `${progress}%` }} />
+              </div>
+            </div>
+          </div>
+
+          <div className="target">
+            <label className="target-row">
+              <span>Vreau media</span>
+              <input
+                className="grade-input"
+                inputMode="decimal"
+                placeholder="8,50"
+                value={targetText}
+                aria-invalid={target === null}
+                onChange={(e) => setTargetText(e.target.value)}
+              />
+            </label>
+            <Segmented
+              label="Media pentru"
+              options={[
+                { value: 'year', label: 'An' },
+                { value: 'semester', label: 'Semestru' },
+              ]}
+              value={targetScope}
+              onChange={setTargetScope}
+            />
+          </div>
+
+          {typeof target === 'number' && (
+            <PlanAnswer
+              key={targetScope}
+              period={targetScope}
+              scope={targetScope === 'year' ? year : semester}
+              target={target}
+            />
+          )}
+
+          <button type="button" className="text-button destructive" onClick={onReset}>
+            Șterge notele semestrului
+          </button>
+        </div>
+      </aside>
+    </>
   )
 }
 
-function RemainingAnswer({ summary, target }: { summary: Summary; target: number }) {
+/** true cat timp elementul e (macar putin) pe ecran. */
+function useIsVisible(ref: RefObject<HTMLElement | null>): boolean {
+  const [visible, setVisible] = useState(false)
+  useEffect(() => {
+    const element = ref.current
+    if (!element) return
+    const observer = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting), { threshold: 0.05 })
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [ref])
+  return visible
+}
+
+/**
+ * true cat timp e selectat un camp (nota, dropdown) in afara elementului dat.
+ * Pe telefon, atunci apare tastatura: ascundem bara de jos ca sa nu acopere campul.
+ */
+function useTypingOutside(selector: string): boolean {
+  const [typing, setTyping] = useState(false)
+  useEffect(() => {
+    const onFocusIn = (e: FocusEvent) => {
+      const el = e.target as HTMLElement
+      setTyping(el.matches('input, select, textarea') && !el.closest(selector))
+    }
+    const onFocusOut = () => setTyping(false)
+    document.addEventListener('focusin', onFocusIn)
+    document.addEventListener('focusout', onFocusOut)
+    return () => {
+      document.removeEventListener('focusin', onFocusIn)
+      document.removeEventListener('focusout', onFocusOut)
+    }
+  }, [selector])
+  return typing
+}
+
+/**
+ * „Ce medie iti trebuie la materiile ramase”, spus concret: din ce semestru, cate materii, cate credite,
+ * si ce presupunem despre materiile admis/respins ramase (ca vor fi admise).
+ */
+function RemainingAnswer({ summary, target, period }: { summary: Summary; target: number; period: 'year' | 'semester' }) {
   const needed = neededAverage(summary, target)
+  const numeric = summary.remaining.filter((c) => c.gradingType === 'NUMERIC')
+  const passFail = summary.remaining.filter((c) => c.gradingType === 'PASS_FAIL')
+  const semesters = [...new Set(numeric.map((c) => c.semester))]
+  const where =
+    period === 'semester'
+      ? 'din acest semestru'
+      : semesters.length === 1
+        ? `din semestrul ${semesters[0]}`
+        : 'din ambele semestre'
+  // Calculul presupune Admis la materiile admis/respins ramase, deci il spunem ca parte din ce iti trebuie.
+  const names = passFail.map((c) => c.name)
+  const admitted =
+    names.length === 0
+      ? ''
+      : names.length === 1
+        ? names[0]
+        : `${names.slice(0, -1).join(', ')} și ${names[names.length - 1]}`
+
   if (needed.kind === 'possible') {
+    // Orientativ: o zecimala, rotunjita in sus (ca sa nu para ca iti trebuie mai putin decat e cazul).
+    const approx = Math.ceil(needed.average * 10 - 1e-9) / 10
     return (
-      <p className="answer">
-        Îți trebuie media <strong>{formatNumber(needed.average)}</strong> la materiile rămase.
-      </p>
+      <div className="answer">
+        <p>
+          Îți trebuie în medie cam <strong>{formatNumber(approx, 1)}</strong> la materiile {where} care n-au încă notă
+          {admitted && (
+            <>
+              {' '}
+              și <strong>Admis</strong> la {admitted}
+            </>
+          )}
+          .
+        </p>
+        <p className="hint">Pune notele pe care le estimezi și vezi direct ce medie îți iese.</p>
+      </div>
     )
   }
-  return <p className="answer">Media {formatNumber(target)} nu se mai poate atinge, nici cu 10 la materiile rămase.</p>
+  return (
+    <p className="answer">
+      Media {formatNumber(target)} nu se mai poate atinge, nici cu 10 la materiile {where} care n-au încă notă.
+    </p>
+  )
 }
 
 /**
@@ -135,7 +250,7 @@ function PlanAnswer({ period, scope, target }: { period: 'year' | 'semester'; sc
   if (summary.remaining.some((c) => c.gradingType === 'NUMERIC')) {
     return (
       <>
-        <RemainingAnswer summary={summary} target={target} />
+        <RemainingAnswer summary={summary} target={target} period={period} />
         <p className="hint">Pentru un plan de măriri, completează (sau estimează) toate notele {periodName}.</p>
       </>
     )
@@ -157,13 +272,27 @@ function PlanAnswer({ period, scope, target }: { period: 'year' | 'semester'; sc
     )
   }
 
-  // Presupunem ca primele mariri folosite au fost cele gratuite.
+  // Primele mariri sunt automat cele gratuite; cate gratuite mai sunt din cele ramase:
   const freeLeft = Math.max(0, improvementsLeft - (MAX_IMPROVEMENTS - FREE_IMPROVEMENTS))
-  const labels = new Map<string, string>()
+  // Eticheta fiecarui grup: „gratuită”, „plătită”, „2 gratuite”, „1 gratuită + 1 plătită”, „restanță”.
+  const labels: string[] = []
   if (plan.kind === 'plan') {
-    plan.changes
-      .filter((c) => !c.retake)
-      .forEach((c, i) => labels.set(c.course.planCode, i < freeLeft ? 'gratuită' : 'plătită'))
+    let free = freeLeft
+    for (const g of plan.groups) {
+      if (g.retake) {
+        labels.push('restanță')
+        continue
+      }
+      const usedFree = Math.min(free, g.count)
+      free -= usedFree
+      const paid = g.count - usedFree
+      const part = (n: number, one: string, many: string) => (n === 1 && g.count === 1 ? one : `${n} ${n === 1 ? one : many}`)
+      labels.push(
+        [usedFree > 0 && part(usedFree, 'gratuită', 'gratuite'), paid > 0 && part(paid, 'plătită', 'plătite')]
+          .filter(Boolean)
+          .join(' + '),
+      )
+    }
   }
 
   return (
@@ -226,28 +355,46 @@ function PlanAnswer({ period, scope, target }: { period: 'year' | 'semester'; sc
       ) : (
         <div className="answer">
           <ul className="plan">
-            {plan.changes.map(({ course, from, to, retake }) => {
-              const label = retake ? 'restanță' : labels.get(course.planCode)
+            {plan.groups.map((group, i) => {
+              const { from, to, retake, count, options } = group
+              const passFail = options[0].gradingType === 'PASS_FAIL'
+              const anyOf = options.length > count // exista alternative echivalente
+              const exclude = (planCode: string) => setExcluded([...excluded, planCode])
               return (
-                <li key={course.planCode}>
+                <li key={options.map((c) => c.planCode).join('-')}>
                   <span className={`plan-delta${retake ? ' retake' : ''}`}>
-                    {from === null ? to : `+${to - from}`}
+                    {passFail ? 'A' : from === null ? to : `+${to - from}`}
                   </span>
                   <span className="plan-name">
-                    {course.name}
+                    {anyOf ? (
+                      <span>la oricare {count > 1 ? `${count} ` : ''}dintre:</span>
+                    ) : (
+                      options.length === 1 && options[0].name
+                    )}
                     <span className="plan-kind">
-                      {from ?? '–'} → <strong>{to}</strong> · {label}
+                      {passFail ? (
+                        <>
+                          Respins → <strong>Admis</strong>
+                        </>
+                      ) : (
+                        <>
+                          {from ?? '–'} → <strong>{to}</strong>
+                        </>
+                      )}{' '}
+                      · {labels[i]}
                     </span>
+                    {(anyOf || options.length > 1) && (
+                      <ul className="plan-options">
+                        {options.map((c) => (
+                          <li key={c.planCode}>
+                            <span>{c.name}</span>
+                            <ExcludeButton course={c} onExclude={exclude} />
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </span>
-                  <button
-                    type="button"
-                    className="plan-exclude"
-                    aria-label={`Nu măresc la ${course.name}`}
-                    title="Nu măresc aici"
-                    onClick={() => setExcluded([...excluded, course.planCode])}
-                  >
-                    ✕
-                  </button>
+                  {!anyOf && options.length === 1 ? <ExcludeButton course={options[0]} onExclude={exclude} /> : <span />}
                 </li>
               )
             })}
@@ -265,5 +412,20 @@ function PlanAnswer({ period, scope, target }: { period: 'year' | 'semester'; sc
         </button>
       )}
     </div>
+  )
+}
+
+/** ✕ langa o materie din plan: „nu maresc aici” (planul se recalculeaza fara ea). */
+function ExcludeButton({ course, onExclude }: { course: Course; onExclude: (planCode: string) => void }) {
+  return (
+    <button
+      type="button"
+      className="plan-exclude"
+      aria-label={`Nu măresc la ${course.name}`}
+      title="Nu măresc aici"
+      onClick={() => onExclude(course.planCode)}
+    >
+      ✕
+    </button>
   )
 }

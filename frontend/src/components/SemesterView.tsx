@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Course } from '../api'
-import { countedCourses, summarize } from '../grading'
+import { annualAverage, countedCourses, summarize } from '../grading'
 import { EMPTY_CURRICULUM, toEntry, type StoredCourse, type StoredCurriculum } from '../storedGrades'
 import { useLocalStorage } from '../useLocalStorage'
 import { CourseCard } from './CourseCard'
@@ -28,7 +28,13 @@ export function SemesterView({ courses, yearCourses, storageKey }: Props) {
   const visible = courses.filter((c) => c.regime !== 'DFA')
   const semester = scopeOf(visible, saved)
   // Anul: aceleasi reguli (credite, picat = 0), pe ambele semestre.
-  const year = scopeOf(yearCourses.filter((c) => c.regime !== 'DFA'), saved)
+  const yearCounted = yearCourses.filter((c) => c.regime !== 'DFA')
+  const year = scopeOf(yearCounted, saved)
+  // Media anului afisata: media aritmetica a celor doua semestre (provizorie pana sunt complete).
+  const annual = annualAverage(
+    scopeOf(yearCounted.filter((c) => c.semester === 1), saved).summary,
+    scopeOf(yearCounted.filter((c) => c.semester === 2), saved).summary,
+  )
 
   const updateCourse = (planCode: string, next: StoredCourse) =>
     setSaved((prev) => ({ ...prev, courses: { ...prev.courses, [planCode]: next } }))
@@ -98,12 +104,8 @@ export function SemesterView({ courses, yearCourses, storageKey }: Props) {
       <section aria-label="Materii">
         <h2 className="list-header">Materii</h2>
         <ul className="list">{toItems(visible).map(renderItem)}</ul>
-        {/* Pe telefon, sumarul e o bara compacta jos; butonul sta la finalul listei. */}
-        <button type="button" className="text-button reset-below-list" onClick={resetSemester}>
-          Șterge notele semestrului
-        </button>
       </section>
-      <SummaryPanel semester={semester} year={year} onReset={resetSemester} />
+      <SummaryPanel semester={semester} year={year} annual={annual} onReset={resetSemester} />
     </div>
   )
 }
