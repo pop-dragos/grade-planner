@@ -5,7 +5,7 @@ import { EMPTY_CURRICULUM, toEntry, type StoredCourse, type StoredCurriculum } f
 import { useLocalStorage } from '../useLocalStorage'
 import { CourseCard } from './CourseCard'
 import { Segmented } from './Segmented'
-import { SummaryPanel } from './SummaryPanel'
+import { SummaryPanel, type Scope } from './SummaryPanel'
 
 interface Props {
   /** Materiile semestrului afisat. */
@@ -26,9 +26,9 @@ export function SemesterView({ courses, yearCourses, storageKey }: Props) {
 
   // Facultativele nu intra in medie, deci nu le afisam deloc.
   const visible = courses.filter((c) => c.regime !== 'DFA')
-  const summary = summarizeCourses(visible, saved)
-  // Media anului: aceeasi regula (credite, picat = 0), pe ambele semestre.
-  const yearAverage = summarizeCourses(yearCourses.filter((c) => c.regime !== 'DFA'), saved).average
+  const semester = scopeOf(visible, saved)
+  // Anul: aceleasi reguli (credite, picat = 0), pe ambele semestre.
+  const year = scopeOf(yearCourses.filter((c) => c.regime !== 'DFA'), saved)
 
   const updateCourse = (planCode: string, next: StoredCourse) =>
     setSaved((prev) => ({ ...prev, courses: { ...prev.courses, [planCode]: next } }))
@@ -98,16 +98,21 @@ export function SemesterView({ courses, yearCourses, storageKey }: Props) {
       <section aria-label="Materii">
         <h2 className="list-header">Materii</h2>
         <ul className="list">{toItems(visible).map(renderItem)}</ul>
+        {/* Pe telefon, sumarul e o bara compacta jos; butonul sta la finalul listei. */}
+        <button type="button" className="text-button reset-below-list" onClick={resetSemester}>
+          Șterge notele semestrului
+        </button>
       </section>
-      <SummaryPanel summary={summary} yearAverage={yearAverage} onReset={resetSemester} />
+      <SummaryPanel semester={semester} year={year} onReset={resetSemester} />
     </div>
   )
 }
 
-function summarizeCourses(courses: Course[], saved: StoredCurriculum) {
+/** Materiile care intra in medie, ce a introdus studentul la ele si sumarul lor. */
+function scopeOf(courses: Course[], saved: StoredCurriculum): Scope {
   const counted = countedCourses(courses, saved.options)
   const entries = Object.fromEntries(counted.map((c) => [c.planCode, toEntry(c, saved.courses[c.planCode])]))
-  return summarize(counted, entries)
+  return { courses: counted, entries, summary: summarize(counted, entries) }
 }
 
 function toItems(courses: Course[]): Item[] {

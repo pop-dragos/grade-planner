@@ -253,3 +253,197 @@ export function neededAverage(summary: Summary, target: number): NeededAverage {
   const rounded = Math.max(ceil2(needed), PASSING_GRADE)
   return rounded > 10 + EPSILON ? { kind: 'impossible' } : { kind: 'possible', average: rounded }
 }
+
+// ─────────────── Plan de marire ───────────────
+//
+// Reguli (regulamentul UTCN, cum le-a confirmat utilizatorul):
+// - pe an se pot face cel mult 4 mariri (primele 2 gratuite, urmatoarele platite);
+// - la marire ramane nota mai mare, deci o marire nu poate strica media;
+// - restantele (trecerea unei materii picate) NU consuma din mariri.
+//
+// Spatiul de cautare e mic (≈20 de materii pe an, cel mult 4 mariri), asa ca verificam
+// TOATE combinatiile de materii si o alegem pe cea mai buna dupa strategia ceruta.
+
+export type Strategy = 'fewestExams' | 'smallestSteps'
+
+export interface PlanOptions {
+  /** Cate mariri mai are studentul in anul curent (0-4). */
+  maxImprovements: number
+  /** fewestExams = cat mai putine examene; smallestSteps = cresteri cat mai mici la fiecare materie. */
+  strategy: Strategy
+  /** Daca e setat, propune mariri doar la materiile din acest semestru. */
+  semester?: number
+  /** plan_code-urile materiilor la care studentul nu vrea sa mareasca. */
+  excluded?: readonly string[]
+}
+
+/** O schimbare propusa: marire (consuma din cele 4) sau restanta (nu consuma). */
+export interface GradeChange {
+  course: Course
+  from: number | null
+  to: number
+  retake: boolean
+}
+
+export type ImprovementPlan =
+  | { kind: 'already'; average: number }
+  | { kind: 'plan'; changes: GradeChange[]; newAverage: number }
+  /** bestAverage = cea mai buna medie posibila cu marirle ramase (null daca nu e nicio nota). */
+  | { kind: 'impossible'; bestAverage: number | null }
+
+interface Candidate {
+  course: Course
+  from: number | null
+  /** Nota cu care materia conteaza acum in medie: nota daca e promovata, 0 daca e picata. */
+  base: number
+  /** Cea mai mica nota noua care conteaza: +1 la o marire, 5 la o restanta. */
+  minGrade: number
+  retake: boolean
+}
+
+interface Evaluated {
+  grades: Map<Candidate, number>
+  gained: number
+  exams: number
+  totalSteps: number
+  maxStep: number
+}
+
+/** „Pasul” unei schimbari: cu cat creste nota (o restanta de la 4 la 5 = 1 pas). */
+function step(c: Candidate, grade: number): number {
+  return grade - (c.retake ? c.minGrade - 1 : c.base)
+}
+
+export function planImprovements(
+  courses: Course[],
+  entries: Record<string, CourseEntry | undefined>,
+  target: number,
+  options: PlanOptions,
+): ImprovementPlan {
+  const summary = summarize(courses, entries)
+  if (summary.creditsGraded === 0) {
+    return { kind: 'impossible', bestAverage: null }
+  }
+
+  // Media trunchiata >= target  <=>  puncte >= target * credite
+  const missing = target * summary.creditsGraded - summary.points
+  if (missing <= EPSILON) {
+    return { kind: 'already', average: summary.average as number }
+  }
+
+  const excluded = new Set(options.excluded ?? [])
+  const improvable: Candidate[] = []
+  const retakes: Candidate[] = []
+  for (const course of courses) {
+    if (course.gradingType !== 'NUMERIC' || excluded.has(course.planCode)) continue
+    if (options.semester !== undefined && course.semester !== options.semester) continue
+    const result = courseResult(course, entries[course.planCode])
+    if (result.status === 'INCOMPLETE') continue
+    if (result.status === 'PASSED') {
+      const grade = result.grade as number
+      if (grade < 10) improvable.push({ course, from: grade, base: grade, minGrade: grade + 1, retake: false })
+    } else {
+      retakes.push({ course, from: result.grade, base: 0, minGrade: PASSING_GRADE, retake: true })
+    }
+  }
+
+  const maxImprovements = Math.max(0, Math.floor(options.maxImprovements))
+  let best: Evaluated | null = null
+
+  for (const chosenImprovements of subsets(improvable, maxImprovements)) {
+    for (const chosenRetakes of subsets(retakes, retakes.length)) {
+      const chosen = [...chosenImprovements, ...chosenRetakes]
+      if (chosen.length === 0) continue
+      const evaluated = evaluate(chosen, missing, options.strategy)
+      if (evaluated && (best === null || better(evaluated, best, options.strategy))) {
+        best = evaluated
+      }
+    }
+  }
+
+  if (best === null) {
+    // Cea mai buna medie posibila: cele mai valoroase mariri permise + toate restantele cu 10.
+    const improvementGains = improvable
+      .map((c) => (10 - c.base) * c.course.credits)
+      .sort((a, b) => b - a)
+      .slice(0, maxImprovements)
+    const maxGain = [...improvementGains, ...retakes.map((c) => 10 * c.course.credits)].reduce((s, g) => s + g, 0)
+    return { kind: 'impossible', bestAverage: truncate2((summary.points + maxGain) / summary.creditsGraded) }
+  }
+
+  const changes = [...best.grades.entries()]
+    .map(([c, to]) => ({ course: c.course, from: c.from, to, retake: c.retake }))
+    .sort((a, b) => Number(a.retake) - Number(b.retake) || b.course.credits - a.course.credits)
+
+  return {
+    kind: 'plan',
+    changes,
+    newAverage: truncate2((summary.points + best.gained) / summary.creditsGraded),
+  }
+}
+
+/**
+ * Pentru un set fix de materii alese: cea mai buna repartizare a notelor noi, sau null daca nici cu 10
+ * la toate nu se strang punctele lipsa. Fiecare materie aleasa primeste macar nota minima (altfel n-ar fi aleasa).
+ */
+function evaluate(chosen: Candidate[], missing: number, strategy: Strategy): Evaluated | null {
+  const gainAt = (c: Candidate, grade: number) => (grade - c.base) * c.course.credits
+  const maxPossible = chosen.reduce((s, c) => s + gainAt(c, 10), 0)
+  if (maxPossible < missing - EPSILON) return null
+
+  // smallestSteps: cel mai mic „pas maxim” care ajunge; fewestExams: fara limita de pas.
+  let stepCap = 10
+  if (strategy === 'smallestSteps') {
+    for (let cap = 1; cap <= 10; cap++) {
+      const reachable = chosen.reduce((s, c) => s + gainAt(c, Math.min(10, c.minGrade + cap - 1)), 0)
+      if (reachable >= missing - EPSILON) {
+        stepCap = cap
+        break
+      }
+    }
+  }
+
+  // Pornim de la nota minima la fiecare, apoi +1 pe rand unde sunt mai multe credite
+  // (acolo +1 aduce cele mai multe puncte), fara sa depasim 10 sau pasul maxim.
+  const grades = new Map<Candidate, number>(chosen.map((c) => [c, c.minGrade]))
+  let gained = chosen.reduce((s, c) => s + gainAt(c, c.minGrade), 0)
+  const byCredits = [...chosen].sort((a, b) => b.course.credits - a.course.credits)
+  while (gained < missing - EPSILON) {
+    const next = byCredits.find((c) => {
+      const grade = grades.get(c) as number
+      return grade < 10 && step(c, grade + 1) <= stepCap
+    })
+    if (!next) return null
+    grades.set(next, (grades.get(next) as number) + 1)
+    gained += next.course.credits
+  }
+
+  const steps = chosen.map((c) => step(c, grades.get(c) as number))
+  return {
+    grades,
+    gained,
+    exams: chosen.length,
+    totalSteps: steps.reduce((s, x) => s + x, 0),
+    maxStep: Math.max(...steps),
+  }
+}
+
+/** a e mai bun decat b? Comparam pe rand criteriile strategiei. */
+function better(a: Evaluated, b: Evaluated, strategy: Strategy): boolean {
+  const key = (e: Evaluated) =>
+    strategy === 'fewestExams' ? [e.exams, e.totalSteps, e.maxStep] : [e.maxStep, e.exams, e.totalSteps]
+  const [ka, kb] = [key(a), key(b)]
+  for (let i = 0; i < ka.length; i++) {
+    if (ka[i] !== kb[i]) return ka[i] < kb[i]
+  }
+  return false
+}
+
+/** Toate submultimile lui items cu cel mult maxSize elemente (inclusiv cea vida). */
+function* subsets<T>(items: T[], maxSize: number, start = 0, current: T[] = []): Generator<T[]> {
+  yield current
+  if (current.length === maxSize) return
+  for (let i = start; i < items.length; i++) {
+    yield* subsets(items, maxSize, i + 1, [...current, items[i]])
+  }
+}

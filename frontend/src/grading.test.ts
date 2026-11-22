@@ -5,6 +5,7 @@ import {
   courseResult,
   minGradeFor,
   neededAverage,
+  planImprovements,
   roundHalfUp,
   summarize,
   truncate2,
@@ -218,5 +219,119 @@ describe('neededAverage', () => {
   it('nimic de calculat cand totul e completat', () => {
     const s = summarize([done], { D: { mode: 'final', grade: 6 } })
     expect(neededAverage(s, 9)).toEqual({ kind: 'nothingRemaining' })
+  })
+})
+
+describe('planImprovements', () => {
+  const big = course({ planCode: 'A', credits: 6 })
+  const mid = course({ planCode: 'B', credits: 4 })
+  const top = course({ planCode: 'C', credits: 5 })
+  const small = course({ planCode: 'S', credits: 3 })
+  const final = (grade: number) => ({ mode: 'final' as const, grade })
+  const fewest = { maxImprovements: 4, strategy: 'fewestExams' as const }
+  const smallest = { maxImprovements: 4, strategy: 'smallestSteps' as const }
+
+  it('spune cand media e deja atinsa', () => {
+    expect(planImprovements([big, small], { A: final(9), S: final(9) }, 8.5, fewest)).toEqual({
+      kind: 'already',
+      average: 9,
+    })
+  })
+
+  it('o singura marire, cat de mica se poate', () => {
+    // 6*6 + 9*3 = 63 / 9 = 7; pentru 8 lipsesc 9 puncte -> la A (6 credite) ajunge +2
+    const plan = planImprovements([big, small], { A: final(6), S: final(9) }, 8, fewest)
+    expect(plan).toEqual({
+      kind: 'plan',
+      changes: [{ course: big, from: 6, to: 8, retake: false }],
+      newAverage: 8.33,
+    })
+  })
+
+  it('cele mai putine examene, apoi intai la materia cu mai multe credite', () => {
+    // 6*6 + 5*4 + 10*5 = 106 / 15; pentru 9 lipsesc 29 puncte -> A pana la 10 (+24) si B +2 (+8)
+    const plan = planImprovements([big, mid, top], { A: final(6), B: final(5), C: final(10) }, 9, fewest)
+    expect(plan).toEqual({
+      kind: 'plan',
+      changes: [
+        { course: big, from: 6, to: 10, retake: false },
+        { course: mid, from: 5, to: 7, retake: false },
+      ],
+      newAverage: 9.2,
+    })
+  })
+
+  describe('strategii', () => {
+    const a = course({ planCode: 'A', credits: 6 })
+    const b = course({ planCode: 'B', credits: 6 })
+    const c = course({ planCode: 'C', credits: 6 })
+    const all7 = { A: final(7), B: final(7), C: final(7) }
+
+    it('putine examene: o singura marire mai mare', () => {
+      const plan = planImprovements([a, b, c], all7, 8, fewest)
+      expect(plan.kind === 'plan' && plan.changes.map((x) => [x.from, x.to])).toEqual([[7, 10]])
+    })
+
+    it('mariri mici: cate +1 la mai multe materii', () => {
+      const plan = planImprovements([a, b, c], all7, 8, smallest)
+      expect(plan.kind === 'plan' && plan.changes.map((x) => x.to - (x.from as number))).toEqual([1, 1, 1])
+    })
+
+    it('mariri mici, dar in limita de mariri ramase', () => {
+      const plan = planImprovements([a, b, c], all7, 8, { maxImprovements: 2, strategy: 'smallestSteps' })
+      expect(plan.kind === 'plan' && plan.changes.map((x) => x.to - (x.from as number)).sort()).toEqual([1, 2])
+    })
+  })
+
+  describe('limita de mariri', () => {
+    const a = course({ planCode: 'A', credits: 6 })
+    const b = course({ planCode: 'B', credits: 6 })
+    const c = course({ planCode: 'C', credits: 6 })
+    const all7 = { A: final(7), B: final(7), C: final(7) }
+
+    it('nu propune mai multe mariri decat ai ramase', () => {
+      // pentru 9,5 lipsesc 45 de puncte; 2 mariri aduc maxim 36 -> imposibil, maxim 9,00
+      expect(planImprovements([a, b, c], all7, 9.5, { ...fewest, maxImprovements: 2 })).toEqual({
+        kind: 'impossible',
+        bestAverage: 9,
+      })
+      expect(planImprovements([a, b, c], all7, 9.5, { ...fewest, maxImprovements: 3 }).kind).toBe('plan')
+    })
+
+    it('restantele nu consuma din mariri', () => {
+      const failed = course({ planCode: 'F', credits: 5 })
+      const plan = planImprovements([top, failed], { C: final(10), F: final(4) }, 7, { ...fewest, maxImprovements: 0 })
+      expect(plan).toEqual({
+        kind: 'plan',
+        changes: [{ course: failed, from: 4, to: 5, retake: true }],
+        newAverage: 7.5,
+      })
+    })
+  })
+
+  it('doar la materiile din semestrul ales', () => {
+    const sem1 = course({ planCode: 'X', credits: 6, semester: 1 })
+    const sem2 = course({ planCode: 'Y', credits: 4, semester: 2 })
+    const plan = planImprovements([sem1, sem2], { X: final(6), Y: final(6) }, 7, { ...fewest, semester: 2 })
+    expect(plan.kind === 'plan' && plan.changes.map((x) => x.course.planCode)).toEqual(['Y'])
+  })
+
+  it('respecta materiile excluse', () => {
+    const plan = planImprovements([big, small], { A: final(6), S: final(6) }, 6.5, { ...fewest, excluded: ['A'] })
+    expect(plan.kind === 'plan' && plan.changes.map((x) => x.course.planCode)).toEqual(['S'])
+  })
+
+  it('imposibil cand nici cu 10 nu se ajunge (ex. o materie respinsa)', () => {
+    const plan = planImprovements([top, sport], { C: final(8), '14.00': { mode: 'passFail', passed: false } }, 9, fewest)
+    expect(plan).toMatchObject({ kind: 'impossible' })
+  })
+
+  it('ignora materiile fara nota', () => {
+    const plan = planImprovements([big, small], { A: final(6) }, 7, fewest)
+    expect(plan).toEqual({
+      kind: 'plan',
+      changes: [{ course: big, from: 6, to: 7, retake: false }],
+      newAverage: 7,
+    })
   })
 })
