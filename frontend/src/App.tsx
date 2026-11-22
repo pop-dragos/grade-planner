@@ -10,7 +10,8 @@ export default function App() {
   const [programs, setPrograms] = useState<Program[]>([])
   const [savedSelection, setSelection] = useLocalStorage<Selection | null>('gp:selection', null)
   const [theme, setTheme] = useLocalStorage<Theme>('gp:theme', 'light')
-  const [courses, setCourses] = useState<Course[] | null>(null)
+  // Materiile anului de studiu selectat, pe semestre: { 1: [...], 2: [...] }
+  const [yearCourses, setYearCourses] = useState<Record<number, Course[]> | null>(null)
   const [loadFailed, setLoadFailed] = useState(false)
   // true cat timp asteptam un server care tocmai porneste (planul gratuit „adoarme” backend-ul)
   const [waking, setWaking] = useState(false)
@@ -55,21 +56,26 @@ export default function App() {
   const program = selection?.program
   const academicYear = selection?.academicYear
   const year = selection?.year
-  const semester = selection?.semester
 
+  // Incarcam ambele semestre odata: pentru media anuala, iar schimbarea semestrului e instantanee.
   useEffect(() => {
-    if (!program || !academicYear || !year || !semester) return
+    if (!program || !academicYear || !year) return
     let cancelled = false // ignora raspunsul daca intre timp s-a schimbat selectia
-    fetchCourses(program, academicYear, year, semester, onSlow)
-      .then((result) => {
+    Promise.all([
+      fetchCourses(program, academicYear, year, 1, onSlow),
+      fetchCourses(program, academicYear, year, 2, onSlow),
+    ])
+      .then(([first, second]) => {
         setWaking(false)
-        if (!cancelled) setCourses(result)
+        if (!cancelled) setYearCourses({ 1: first, 2: second })
       })
       .catch(onLoadError)
     return () => {
       cancelled = true
     }
-  }, [program, academicYear, year, semester, attempt])
+  }, [program, academicYear, year, attempt])
+
+  const courses = selection && yearCourses ? (yearCourses[selection.semester] ?? []) : null
 
   return (
     <div className="page">
@@ -77,7 +83,7 @@ export default function App() {
         <div>
           <h1>Calculator medii CTI</h1>
           <p className="subtitle">
-            Alege anul și semestrul, introdu notele și vezi media, creditele și ce îți mai trebuie la examene.
+            Alege anul și semestrul, introdu notele și vezi media, creditele și ce medie îți mai trebuie.
           </p>
         </div>
         <button
@@ -117,11 +123,12 @@ export default function App() {
         </p>
       )}
 
-      {selection && courses && courses.length > 0 && (
+      {selection && yearCourses && courses && courses.length > 0 && (
         <SemesterView
           key={`${selection.program}:${selection.academicYear}`}
           storageKey={`gp:grades:${selection.program}:${selection.academicYear}`}
           courses={courses}
+          yearCourses={[...(yearCourses[1] ?? []), ...(yearCourses[2] ?? [])]}
         />
       )}
 
