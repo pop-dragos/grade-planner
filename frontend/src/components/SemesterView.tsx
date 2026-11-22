@@ -8,7 +8,10 @@ import { Segmented } from './Segmented'
 import { SummaryPanel } from './SummaryPanel'
 
 interface Props {
+  /** Materiile semestrului afisat. */
   courses: Course[]
+  /** Materiile ambelor semestre ale anului de studiu, pentru media anuala. */
+  yearCourses: Course[]
   /** Cheia din localStorage pentru planul curent, ex. "gp:grades:CALC-RO:2026-2027". */
   storageKey: string
 }
@@ -16,16 +19,16 @@ interface Props {
 /** O materie simpla sau un pachet optional (ex. limbile straine) afisat ca un singur rand. */
 type Item = { kind: 'course'; course: Course } | { kind: 'group'; group: string; courses: Course[] }
 
-export function SemesterView({ courses, storageKey }: Props) {
+export function SemesterView({ courses, yearCourses, storageKey }: Props) {
   const [saved, setSaved] = useLocalStorage<StoredCurriculum>(storageKey, EMPTY_CURRICULUM)
   // Creste la „Sterge notele”, ca sa remonteze randurile (campurile isi tin textul local).
   const [version, setVersion] = useState(0)
 
   // Facultativele nu intra in medie, deci nu le afisam deloc.
   const visible = courses.filter((c) => c.regime !== 'DFA')
-  const counted = countedCourses(visible, saved.options)
-  const entries = Object.fromEntries(counted.map((c) => [c.planCode, toEntry(c, saved.courses[c.planCode])]))
-  const summary = summarize(counted, entries)
+  const summary = summarizeCourses(visible, saved)
+  // Media anului: aceeasi regula (credite, picat = 0), pe ambele semestre.
+  const yearAverage = summarizeCourses(yearCourses.filter((c) => c.regime !== 'DFA'), saved).average
 
   const updateCourse = (planCode: string, next: StoredCourse) =>
     setSaved((prev) => ({ ...prev, courses: { ...prev.courses, [planCode]: next } }))
@@ -96,9 +99,15 @@ export function SemesterView({ courses, storageKey }: Props) {
         <h2 className="list-header">Materii</h2>
         <ul className="list">{toItems(visible).map(renderItem)}</ul>
       </section>
-      <SummaryPanel summary={summary} onReset={resetSemester} />
+      <SummaryPanel summary={summary} yearAverage={yearAverage} onReset={resetSemester} />
     </div>
   )
+}
+
+function summarizeCourses(courses: Course[], saved: StoredCurriculum) {
+  const counted = countedCourses(courses, saved.options)
+  const entries = Object.fromEntries(counted.map((c) => [c.planCode, toEntry(c, saved.courses[c.planCode])]))
+  return summarize(counted, entries)
 }
 
 function toItems(courses: Course[]): Item[] {

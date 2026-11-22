@@ -4,11 +4,13 @@ import { neededAverage, type Summary } from '../grading'
 
 interface Props {
   summary: Summary
+  /** Media pe tot anul de studiu (ambele semestre); null daca nu e nicio nota in an. */
+  yearAverage: number | null
   onReset: () => void
 }
 
 /** Pe ecran lat: coloana din dreapta, fixa la scroll. Pe telefon: bara fixa in partea de jos. */
-export function SummaryPanel({ summary, onReset }: Props) {
+export function SummaryPanel({ summary, yearAverage, onReset }: Props) {
   const [targetText, setTargetText] = useState('')
   const target = parseGrade(targetText)
   const progress = summary.creditsTotal > 0 ? (summary.creditsEarned / summary.creditsTotal) * 100 : 0
@@ -17,8 +19,17 @@ export function SummaryPanel({ summary, onReset }: Props) {
     <aside className="summary" aria-label="Sumar semestru">
       <div className="summary-stats">
         <div className="stat">
-          <span className="stat-label">Media</span>
-          <span className="stat-value">{summary.average === null ? '—' : formatNumber(summary.average)}</span>
+          <span className="stat-label">Media semestrului</span>
+          {summary.average === null ? (
+            <span className="stat-empty">Introdu o notă</span>
+          ) : (
+            <span className="stat-value">{formatNumber(summary.average)}</span>
+          )}
+          {yearAverage !== null && (
+            <span className="stat-sub">
+              Media anului: <strong>{formatNumber(yearAverage)}</strong>
+            </span>
+          )}
         </div>
         <div className="stat">
           <span className="stat-label">Credite</span>

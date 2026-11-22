@@ -345,6 +345,13 @@ select {
   border-color: #3a4456;
 }
 
+/* Exemplul din camp trebuie sa para exemplu, nu valoare introdusa */
+.grade-input::placeholder {
+  color: var(--muted);
+  opacity: 0.45;
+  font-weight: 400;
+}
+
 .grade-input:hover {
   border-color: var(--accent);
 }
@@ -409,6 +416,21 @@ select {
   font-weight: 700;
   line-height: 1.15;
   font-variant-numeric: tabular-nums;
+}
+
+.stat-empty {
+  padding: 6px 0;
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+
+.stat-sub {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.stat-sub strong {
+  color: var(--text);
 }
 
 .stat-total {
