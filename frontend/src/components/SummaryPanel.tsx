@@ -74,7 +74,7 @@ export function SummaryPanel({ semester, year, annual, onReset }: Props) {
             <div className="stat">
               <span className="stat-label">Media semestrului</span>
               {summary.average === null ? (
-                <span className="stat-empty">Introdu o notă</span>
+                <span className="stat-empty">Introdu prima notă ca să vezi media</span>
               ) : (
                 <span className="stat-value">{formatNumber(summary.average)}</span>
               )}

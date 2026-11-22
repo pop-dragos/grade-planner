@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { Course } from '../api'
 import { annualAverage, countedCourses, summarize } from '../grading'
-import { EMPTY_CURRICULUM, toEntry, type StoredCourse, type StoredCurriculum } from '../storedGrades'
+import { demoCurriculum, EMPTY_CURRICULUM, toEntry, type StoredCourse, type StoredCurriculum } from '../storedGrades'
 import { useLocalStorage } from '../useLocalStorage'
 import { CourseCard } from './CourseCard'
 import { Segmented } from './Segmented'
@@ -14,13 +14,18 @@ interface Props {
   yearCourses: Course[]
   /** Cheia din localStorage pentru planul curent, ex. "gp:grades:CALC-RO:2026-2027". */
   storageKey: string
+  /** Mod exemplu: porneste cu note completate (se citesc o singura data, la montare). */
+  demo?: boolean
 }
 
 /** O materie simpla sau un pachet optional (ex. limbile straine) afisat ca un singur rand. */
 type Item = { kind: 'course'; course: Course } | { kind: 'group'; group: string; courses: Course[] }
 
-export function SemesterView({ courses, yearCourses, storageKey }: Props) {
-  const [saved, setSaved] = useLocalStorage<StoredCurriculum>(storageKey, EMPTY_CURRICULUM)
+export function SemesterView({ courses, yearCourses, storageKey, demo }: Props) {
+  const [saved, setSaved] = useLocalStorage<StoredCurriculum>(
+    storageKey,
+    demo ? demoCurriculum(yearCourses) : EMPTY_CURRICULUM,
+  )
   // Creste la „Sterge notele”, ca sa remonteze randurile (campurile isi tin textul local).
   const [version, setVersion] = useState(0)
 

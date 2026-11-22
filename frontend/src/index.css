@@ -72,23 +72,298 @@ select {
 
 /* ─────────── Antet ─────────── */
 
-.app-header {
+.hero {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 16px;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--accent-soft), var(--surface) 70%);
 }
 
-.app-header h1 {
-  font-size: 28px;
+.hero h1 {
+  font-size: 32px;
   font-weight: 700;
   letter-spacing: -0.01em;
 }
 
 .subtitle {
-  margin-top: 4px;
+  max-width: 60ch;
+  margin-top: 6px;
   color: var(--muted);
+}
+
+.privacy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--ok-soft);
+  color: var(--ok);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.hero-actions {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.topbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+/* ─────────── Ghid in 3 pasi ─────────── */
+
+.guide {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.steps li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 40px 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: 0.92rem;
+}
+
+.step-n {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+:root[data-theme='dark'] .step-n {
+  color: #0b1220;
+}
+
+.guide-close {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.guide-close:hover {
+  color: var(--text);
+}
+
+/* ─────────── Pagina de bun venit ─────────── */
+
+.welcome {
+  display: grid;
+  place-items: center;
+  min-height: 68vh;
+  padding: 40px 16px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  text-align: center;
+  background:
+    radial-gradient(circle at 20% 10%, var(--accent-soft), transparent 55%),
+    radial-gradient(circle at 85% 90%, var(--ok-soft), transparent 50%), var(--surface);
+}
+
+.welcome-inner {
+  max-width: 620px;
+  animation: rise 0.6s ease both;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.greeting {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.wave {
+  display: inline-block;
+  transform-origin: 70% 70%;
+  animation: wave 2.4s ease-in-out 0.4s 1;
+}
+
+@keyframes wave {
+  0%,
+  60%,
+  100% {
+    transform: rotate(0);
+  }
+  10%,
+  30% {
+    transform: rotate(14deg);
+  }
+  20%,
+  40% {
+    transform: rotate(-8deg);
+  }
+  50% {
+    transform: rotate(10deg);
+  }
+}
+
+.welcome h1 {
+  margin-top: 6px;
+  font-size: clamp(32px, 6vw, 48px);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.lead {
+  max-width: 52ch;
+  margin: 16px auto 0;
+  color: var(--muted);
+  font-size: 1.1rem;
+}
+
+.features {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin: 24px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.features li {
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 0.9rem;
+}
+
+.cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 28px;
+  padding: 14px 32px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgb(37 99 235 / 25%);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+:root[data-theme='dark'] .cta {
+  color: #0b1220;
+}
+
+.cta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgb(37 99 235 / 30%);
+}
+
+.example {
+  display: block;
+  margin: 10px auto 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 0.9rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.example:hover {
+  color: var(--text);
+}
+
+.privacy-note {
+  display: block;
+  margin-top: 16px;
+  color: var(--ok);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* ─────────── Incarcare (skeleton) ─────────── */
+
+.skeleton {
+  display: grid;
+  gap: 16px;
+}
+
+.skeleton-block {
+  border-radius: var(--radius);
+  background: linear-gradient(90deg, var(--fill) 25%, var(--border) 50%, var(--fill) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+.selector-skeleton {
+  height: 130px;
+}
+
+.list-skeleton {
+  height: 220px;
+}
+
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wave,
+  .welcome-inner,
+  .skeleton-block,
+  .spinner {
+    animation: none;
+  }
 }
 
 .icon-button {
@@ -99,13 +374,6 @@ select {
   border-radius: 10px;
   background: var(--surface);
   cursor: pointer;
-}
-
-.app-footer {
-  margin-top: 32px;
-  text-align: center;
-  font-size: 0.85rem;
-  color: var(--muted);
 }
 
 .error,
@@ -171,14 +439,40 @@ div.error {
 
 .selector {
   display: grid;
-  gap: 12px;
+  gap: 14px;
   margin-bottom: 28px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
 }
 
 .selector-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 16px;
+}
+
+.field {
+  display: grid;
+  gap: 4px;
+}
+
+.field > label,
+.field-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.demo-banner {
+  justify-content: space-between;
+}
+
+.demo-banner .text-button {
+  color: inherit;
 }
 
 select {
@@ -667,8 +961,21 @@ select {
     padding: 24px 16px 80px;
   }
 
-  .app-header h1 {
-    font-size: 24px;
+  .hero {
+    padding: 20px;
+  }
+
+  .hero h1 {
+    font-size: 26px;
+  }
+
+  .steps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .guide-close {
+    top: 6px;
+    right: 6px;
   }
 
   .layout {

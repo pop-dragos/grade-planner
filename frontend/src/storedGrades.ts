@@ -20,6 +20,22 @@ export interface StoredCurriculum {
 
 export const EMPTY_CURRICULUM: StoredCurriculum = { courses: {}, options: {} }
 
+const DEMO_GRADES = [9, 8, 10, 7, 9, 8, 10, 9]
+
+/** Note de exemplu pentru modul „exemplu”: cate o nota la fiecare materie, admis la cele admis/respins. */
+export function demoCurriculum(courses: Course[]): StoredCurriculum {
+  const stored: Record<string, StoredCourse> = {}
+  courses
+    .filter((c) => c.regime !== 'DFA')
+    .forEach((c, i) => {
+      stored[c.planCode] =
+        c.gradingType === 'PASS_FAIL'
+          ? { mode: 'final', components: {}, passed: true }
+          : { mode: 'final', components: {}, final: DEMO_GRADES[i % DEMO_GRADES.length] }
+    })
+  return { courses: stored, options: {} }
+}
+
 export function emptyCourse(): StoredCourse {
   return { mode: 'final', components: {} }
 }
