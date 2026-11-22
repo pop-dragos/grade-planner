@@ -32,8 +32,8 @@ public class Course {
     /** NUMERIC = nota 1-10; PASS_FAIL = admis/respins (ex. Sport). */
     public enum GradingType { NUMERIC, PASS_FAIL }
 
-    /** Categoria formativa: fundamentala, de domeniu, de specialitate, complementara. */
-    public enum Category { DF, DD, DS, DC }
+    /** Categoria formativa: fundamentala, de domeniu (DD / DID), de specialitate, complementara. */
+    public enum Category { DF, DD, DID, DS, DC }
 
     /** Obligatorie, optionala, facultativa. */
     public enum Regime { DOB, DOP, DFA }

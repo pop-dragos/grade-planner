@@ -14,8 +14,15 @@ export default function App() {
   const [loadFailed, setLoadFailed] = useState(false)
   // true cat timp asteptam un server care tocmai porneste (planul gratuit „adoarme” backend-ul)
   const [waking, setWaking] = useState(false)
+  // Creste la „Reîncearcă”: efectele de incarcare depind de el, deci ruleaza din nou.
+  const [attempt, setAttempt] = useState(0)
 
   const onSlow = () => setWaking(true)
+
+  const retry = () => {
+    setLoadFailed(false)
+    setAttempt((a) => a + 1)
+  }
 
   // Utilizatorul vede un mesaj simplu; detaliul tehnic ramane in consola browserului (F12).
   const onLoadError = (e: Error) => {
@@ -36,7 +43,7 @@ export default function App() {
         setPrograms(result)
       })
       .catch(onLoadError)
-  }, [])
+  }, [attempt])
 
   // Pana alege studentul ceva, pornim de la primul program, cel mai recent an universitar, anul 1 sem 1
   const selection: Selection | null =
@@ -62,7 +69,7 @@ export default function App() {
     return () => {
       cancelled = true
     }
-  }, [program, academicYear, year, semester])
+  }, [program, academicYear, year, semester, attempt])
 
   return (
     <div className="page">
@@ -87,14 +94,17 @@ export default function App() {
       {waking && !loadFailed && (
         <p className="notice" role="status">
           <span className="spinner" aria-hidden="true" />
-          Serverul pornește, poate dura până la un minut…
+          Serverul pornește, poate dura 2–3 minute…
         </p>
       )}
 
       {loadFailed && (
-        <p className="error" role="alert">
-          Nu am putut încărca materiile. Serverul nu răspunde momentan, încearcă din nou puțin mai târziu.
-        </p>
+        <div className="error" role="alert">
+          <span>Nu am putut încărca materiile. Serverul nu răspunde momentan.</span>
+          <button type="button" className="retry-button" onClick={retry}>
+            Reîncearcă
+          </button>
+        </div>
       )}
 
       {selection && programs.length > 0 && (
