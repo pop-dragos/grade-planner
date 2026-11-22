@@ -122,6 +122,25 @@ select {
   color: var(--bad);
 }
 
+div.error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.retry-button {
+  padding: 6px 16px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--bad);
+  color: #ffffff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 .notice {
   display: flex;
   align-items: center;
@@ -274,6 +293,11 @@ select {
   margin-top: 10px;
 }
 
+.option-select {
+  width: 100%;
+  max-width: 100%;
+}
+
 /* Starea apare langa nota pe ecran lat si sub numele materiei pe telefon. */
 .status-below {
   display: none;
@@ -302,87 +326,54 @@ select {
   background: var(--bad-soft);
 }
 
+/* Campul pentru nota: elementul principal al randului, deci mare si usor de gasit */
 .grade-input {
-  width: 5.5em;
-  min-height: 38px;
-  padding: 6px 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  width: 64px;
+  height: 48px;
+  padding: 0 8px;
+  border: 1.5px solid #c9d2df;
+  border-radius: 10px;
   background: var(--surface);
-  text-align: right;
-  font-size: 1.05rem;
+  text-align: center;
+  font-size: 1.25rem;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
 }
 
-.grade-input::placeholder {
-  color: var(--muted);
-  opacity: 0.6;
+:root[data-theme='dark'] .grade-input {
+  border-color: #3a4456;
+}
+
+.grade-input:hover {
+  border-color: var(--accent);
+}
+
+.grade-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+
+.grade-input.passed {
+  border-color: var(--ok);
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.grade-input.failed {
+  border-color: var(--bad);
+  background: var(--bad-soft);
+  color: var(--bad);
 }
 
 .grade-input[aria-invalid='true'] {
   border-color: var(--bad);
 }
 
-/* Componente (examen, laborator...) intr-un bloc usor incadrat in rand */
-.components {
-  margin-top: 12px;
-  padding: 4px 14px;
-  border-radius: 10px;
-  background: var(--fill);
-}
-
-.component {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  min-height: 46px;
-}
-
-.component + .component {
-  border-top: 1px solid var(--border);
-}
-
 .hint {
-  padding: 8px 0 6px;
   font-size: 0.9rem;
   color: var(--muted);
-}
-
-.row-footer {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 20px;
-  margin-top: 10px;
-  font-size: 0.9rem;
-  color: var(--muted);
-}
-
-.toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-}
-
-.toggle input {
-  width: 16px;
-  height: 16px;
-  margin: 0;
-  accent-color: var(--accent);
-  cursor: pointer;
-}
-
-.disclosure summary {
-  color: var(--accent);
-  cursor: pointer;
-}
-
-.disclosure ul {
-  margin: 8px 0 0;
-  padding-left: 18px;
-  font-size: 0.85rem;
 }
 
 /* ─────────── Sumar ─────────── */

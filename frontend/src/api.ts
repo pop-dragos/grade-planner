@@ -38,7 +38,7 @@ export interface Course {
   credits: number
   evaluationForm: 'E' | 'C' | 'V'
   gradingType: GradingType
-  category: 'DF' | 'DD' | 'DS' | 'DC'
+  category: 'DF' | 'DD' | 'DID' | 'DS' | 'DC'
   regime: Regime
   optionGroup: string | null
   rulesStatus: RulesStatus
@@ -53,7 +53,7 @@ export interface Course {
 const RETRYABLE_STATUS = new Set([502, 503, 504])
 const SLOW_AFTER_MS = 3_000
 const RETRY_EVERY_MS = 3_000
-const GIVE_UP_AFTER_MS = 90_000
+const GIVE_UP_AFTER_MS = 180_000 // pe planul gratuit, pornirea la rece poate dura 2-3 minute
 
 /** onSlow e apelat o singura data, daca raspunsul intarzie (ca UI-ul sa poata explica asteptarea). */
 async function getJson<T>(url: string, onSlow?: () => void): Promise<T> {

@@ -29,8 +29,6 @@ export function toEntry(course: Course, stored: StoredCourse | undefined): Cours
   if (course.gradingType === 'PASS_FAIL') {
     return stored.passed === undefined ? undefined : { mode: 'passFail', passed: stored.passed }
   }
-  if (stored.mode === 'components' && course.rulesStatus === 'CLEAR') {
-    return { mode: 'components', grades: stored.components }
-  }
+  // MVP: doar nota finala. Calculul pe componente (grading.ts) revine cand adaugam fisele.
   return stored.final === undefined ? undefined : { mode: 'final', grade: stored.final }
 }

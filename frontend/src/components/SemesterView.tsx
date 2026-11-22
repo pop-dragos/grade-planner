@@ -54,20 +54,37 @@ export function SemesterView({ courses, storageKey }: Props) {
       )
     }
     const chosen = item.courses.find((c) => c.planCode === saved.options[item.group]) ?? item.courses[0]
+    const languages = isLanguageGroup(item.courses)
     return (
       <CourseCard
         key={`${chosen.planCode}-${version}`}
         course={chosen}
-        title={groupTitle(item.courses)}
+        title={languages ? languageTitle(item.courses[0].name) : 'Pachet opțional'}
         stored={saved.courses[chosen.planCode]}
         onChange={(next) => updateCourse(chosen.planCode, next)}
         picker={
-          <Segmented
-            label="Alege varianta"
-            options={item.courses.map((c) => ({ value: c.planCode, label: variantLabel(c.name) }))}
-            value={chosen.planCode}
-            onChange={(planCode) => chooseOption(item.group, planCode)}
-          />
+          languages ? (
+            <Segmented
+              label="Alege limba"
+              options={item.courses.map((c) => ({ value: c.planCode, label: languageLabel(c.name) }))}
+              value={chosen.planCode}
+              onChange={(planCode) => chooseOption(item.group, planCode)}
+            />
+          ) : (
+            // Numele materiilor optionale sunt lungi: dropdown, nu control segmentat.
+            <select
+              className="option-select"
+              aria-label="Alege materia din pachet"
+              value={chosen.planCode}
+              onChange={(e) => chooseOption(item.group, e.target.value)}
+            >
+              {item.courses.map((c) => (
+                <option key={c.planCode} value={c.planCode}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          )
         }
       />
     )
@@ -103,20 +120,21 @@ function toItems(courses: Course[]): Item[] {
   return items
 }
 
-const LANGUAGE = /^Limba\s+(\S+)(?:\s+([IVX]+))?$/i
+// „Limba engleză I”, „Limba germană II - Redactarea documentelor tehnice”
+const LANGUAGE = /^Limba\s+(\S+)(?:\s+([IVX]+))?(?:\s+-\s+(.+))?$/i
 
-/** „Limba engleză I”, „Limba germană I” -> „Limbă străină I”. Alt tip de pachet -> „Pachet opțional”. */
-function groupTitle(courses: Course[]): string {
-  const match = courses[0].name.match(LANGUAGE)
-  if (match && courses.every((c) => LANGUAGE.test(c.name))) {
-    return match[2] ? `Limbă străină ${match[2]}` : 'Limbă străină'
-  }
-  return 'Pachet opțional'
+function isLanguageGroup(courses: Course[]): boolean {
+  return courses.every((c) => LANGUAGE.test(c.name))
 }
 
-/** „Limba engleză I” -> „Engleză”; alte nume raman neschimbate. */
-function variantLabel(name: string): string {
-  const match = name.match(LANGUAGE)
-  if (!match) return name
-  return match[1].charAt(0).toUpperCase() + match[1].slice(1)
+/** „Limba engleză II - Redactarea documentelor tehnice” -> „Limbă străină II - Redactarea documentelor tehnice”. */
+function languageTitle(name: string): string {
+  const [, , level, topic] = name.match(LANGUAGE) ?? []
+  return ['Limbă străină', level, topic && `- ${topic}`].filter(Boolean).join(' ')
+}
+
+/** „Limba engleză I” -> „Engleză”. */
+function languageLabel(name: string): string {
+  const language = name.match(LANGUAGE)?.[1] ?? name
+  return language.charAt(0).toUpperCase() + language.slice(1)
 }

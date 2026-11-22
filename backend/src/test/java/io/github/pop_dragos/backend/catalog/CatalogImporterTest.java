@@ -54,6 +54,7 @@ class CatalogImporterTest {
         return em.createQuery("""
                         select count(c) from Course c
                         where c.curriculum.program.code = 'CALC-RO' and c.curriculum.academicYear = '2026-2027'
+                          and c.yearOfStudy = 1
                         """, Long.class)
                 .getSingleResult();
     }
