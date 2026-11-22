@@ -4,7 +4,7 @@
 
 **A full-stack grade planning application for Computer Science students.** Track semester and annual averages, monitor earned credits, and find practical ways to reach a target average.
 
-- **Live app:** [grade-plannervercelapp.vercel.app](https://grade-plannervercelapp.vercel.app/)
+- **Live app:** [grade-plannervercelapp.vercel.app](https://grade-planner-app.vercel.app/)
 - **Current curriculum:** Calculatoare (Romanian), academic year 2026–2027
 - **App language:** Romanian
 
