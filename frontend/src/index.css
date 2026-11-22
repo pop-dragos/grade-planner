@@ -690,15 +690,15 @@ select {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: 8px;
     width: 100%;
-    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+    padding: 12px calc(20px + env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) calc(20px + env(safe-area-inset-left));
     border: 0;
     border-top: 1px solid var(--border);
     border-radius: 14px 14px 0 0;
     background: var(--surface);
     box-shadow: 0 -4px 16px rgb(16 24 40 / 10%);
-    font-size: 0.95rem;
+    font-size: 1rem;
     color: var(--muted);
     cursor: pointer;
     transition: transform 0.2s ease;
